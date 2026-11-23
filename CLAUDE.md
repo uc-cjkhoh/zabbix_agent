@@ -53,7 +53,7 @@ The one copy of the tree.
     ├── architecture/             # index.md, overview.md, design-plan.md, topology.md
     ├── decisions/                # README.md (index + open questions), d1..d13
     ├── operations/               # testbed.md, credentials.local.md (git-ignored)
-    └── development/              # coding-standards, review-guidelines, implementation-plan/, backlog/, run-logs/
+    └── development/              # coding-standards, review-guidelines, implementation-plan/, backlog/, run-logs/, updates/ (generated)
 ```
 
 ## 9. Where things live
