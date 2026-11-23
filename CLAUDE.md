@@ -13,7 +13,7 @@ Project type: **no matching type, core only** ([D4](docs/decisions/d4-project-ty
 
 ## 2. Where the code is
 Undecided ([open question](docs/decisions/README.md)). The project root is `/unified/user/cj/` on any machine;
-keep other folders clean and isolated. This KB is docs only: never scaffold code into it.
+keep other folders clean and isolated. This KB is docs only: never scaffold code into it. `.claude/` holds tooling hooks, not product code ([D14](docs/decisions/d14-changelog-generated-in-root.md)).
 
 ## 3. Golden rules
 Full text, same numbers: [docs/development/coding-standards.md](docs/development/coding-standards.md).
@@ -47,13 +47,14 @@ No custom UI is built (Grafana is the monitoring UI, D11); UI/browser rules from
 The one copy of the tree.
 ```
 ./
-├── README.md  CLAUDE.md  CHANGELOG.md  .gitignore
+├── README.md  CLAUDE.md  CHANGELOG.md (generated)  .gitignore
+├── .claude/                      # settings.json, hooks/update-changelog.py
 └── docs/
     ├── README.md
     ├── architecture/             # index.md, overview.md, design-plan.md, topology.md, topology-facts.md
     ├── decisions/                # README.md (index + open questions), d1..d13
     ├── operations/               # testbed.md, credentials.local.md (git-ignored)
-    └── development/              # coding-standards, review-guidelines, implementation-plan/, backlog/, run-logs/, updates/ (generated)
+    └── development/              # coding-standards, review-guidelines, implementation-plan/, backlog/, run-logs/
 ```
 
 ## 9. Where things live
@@ -65,6 +66,7 @@ The one copy of the tree.
 | Change or add a decision | none | [decisions/README.md](docs/decisions/README.md) |
 | Touch the testbed | none | [operations/testbed.md](docs/operations/testbed.md) |
 | Write code or config | none yet | [development/coding-standards.md](docs/development/coding-standards.md) |
+| Change the change log or its hook | `.claude/hooks/update-changelog.py` | [D14](docs/decisions/d14-changelog-generated-in-root.md) |
 | Review or call work done | none | [development/review-guidelines.md](docs/development/review-guidelines.md) |
 | Change Grafana dashboards or its datasource | none yet | [D11](docs/decisions/d11-grafana-monitoring-ui.md), [design plan](docs/architecture/design-plan.md) section 6a |
 | Build the system (task order, protocol, gates) | none yet | [implementation-plan](docs/development/implementation-plan/index.md) |

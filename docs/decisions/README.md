@@ -1,12 +1,12 @@
 ---
 title: Decision log
-description: Lookup of decision records D1..D13 and the open questions that need the owner
+description: Lookup of decision records D1..D14 and the open questions that need the owner
 components: []
 ---
 
 # Decisions
 
-All of D1 to D13 are decided: the owner made D1 to D5, D8 to D13 and read-only v1 directly; D6, D7's thin server and the mechanisms inside D8 and D11 were the agent's proposals, accepted with the approved [design plan](../architecture/design-plan.md). Verification items can still overturn one.
+All of D1 to D14 are decided: the owner made D1 to D5, D8 to D14 and read-only v1 directly; D6, D7's thin server and the mechanisms inside D8 and D11 were the agent's proposals, accepted with the approved [design plan](../architecture/design-plan.md). Verification items can still overturn one.
 
 | ID | Decision | File |
 |---|---|---|
@@ -23,6 +23,7 @@ All of D1 to D13 are decided: the owner made D1 to D5, D8 to D13 and read-only v
 | D11 | Grafana: monitoring UI and notification surface, read-only, not an alert engine; on-call skipped (owner decision) | [d11-grafana-monitoring-ui.md](d11-grafana-monitoring-ui.md) |
 | D12 | Operational data stays in the network (owner decision) | [d12-operational-data-stays-in-network.md](d12-operational-data-stays-in-network.md) |
 | D13 | The testbed is a rehearsal; the 50+ modules are a sizing reference (owner decision) | [d13-rehearsal-testbed-and-sizing-reference.md](d13-rehearsal-testbed-and-sizing-reference.md) |
+| D14 | `CHANGELOG.md` is the generated change log, times in UTC+8, rebuilt by a hook (owner decision) | [d14-changelog-generated-in-root.md](d14-changelog-generated-in-root.md) |
 
 ## Open questions (the owner's to decide; nothing is assumed)
 | # | Question | Blocks |
@@ -32,7 +33,7 @@ All of D1 to D13 are decided: the owner made D1 to D5, D8 to D13 and read-only v
 | Q3 | Answered: superseded; Grafana is the notification medium ([D8](d8-grafana-only-notification.md)) | none |
 | Q4 | Answered: Zabbix 8.0 LTS, falling back to 7.0 ([D10](d10-zabbix-version-and-database.md)) | none |
 | Q5 | Answered: the agent is read-only against Zabbix in v1 ([D7](d7-thin-readonly-mcp-server.md)) | none |
-| Q6 | Do we wire the KB-lint and update-log hooks into `.claude/settings.json`? | [Backlog](../development/backlog/environment-and-tooling.md) |
+| Q6 | Partly answered: the update-log hook is wired ([D14](d14-changelog-generated-in-root.md)); do we also wire the KB-lint hook into `.claude/settings.json`? | [Backlog](../development/backlog/environment-and-tooling.md) |
 | Q7 | Commit and merge policy for the KB repo: ask each time (default) or a standing grant? | First commit |
 | Q9 | Answered ([D13](d13-rehearsal-testbed-and-sizing-reference.md)): the 50+ modules run on a host we cannot reach and are a sizing reference only; the rehearsal uses simulated load | none |
 | Q10 | Answered: no chat system; Grafana only ([D8](d8-grafana-only-notification.md)) | none |

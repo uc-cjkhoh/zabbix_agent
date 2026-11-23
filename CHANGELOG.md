@@ -1,5 +1,13 @@
 # Changelog
 
-The change log is generated from git history and is never hand-edited: [docs/development/updates/changelog.md](docs/development/updates/changelog.md).
-The update-log hook (pattern in `/unified/user/cj/knowledge/agent-behavior/tooling/hooks.md`) is not wired yet, so the log is
-regenerated on request; see the [backlog](docs/development/backlog/environment-and-tooling.md).
+Generated from `git log` on `main` by `.claude/hooks/update-changelog.py` after each commit. Do not edit by hand.
+One table per date, times in UTC+8. Commits that only touch this file are not listed.
+
+## 2026-11-23
+
+| Time (UTC+8) | Change | Commits |
+|---|---|---|
+| 14:11 | docs: regenerate change log with all commits, times in UTC+8 | `db52c08` |
+| 14:09 | docs: add topology facts with simplified diagram and evidence | `469e322` |
+| 13:50 | docs: add generated change log and point CHANGELOG.md at it | `4527363` |
+| 13:46 | docs: initial knowledge base, design plan, topology and implementation plan | `c69dd37` |

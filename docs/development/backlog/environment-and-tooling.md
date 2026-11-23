@@ -1,6 +1,6 @@
 ---
 title: Backlog - environment and tooling
-description: Remaining testbed checks, hooks wiring and KB check
+description: Remaining testbed checks, KB-lint hook wiring and KB check
 components: []
 ---
 
@@ -15,8 +15,6 @@ components: []
 - **kb-lint-hook** (medium; small) - open: not wired. PostToolUse hook on `Write|Edit` reporting line-limit,
   front-matter, index and link problems, per agent-behavior `tooling/hooks.md`. Editing
   `.claude/settings.json` needs the user's approval (Q6).
-- **update-log-hook** (low; small) - open: not wired. `CHANGELOG.md` points at `docs/development/updates/changelog.md`, which is
-  regenerated from git history on request; the hook would regenerate it after each commit. Needs: Q6.
 - **git-credentials** (low; trivial) - open: the KB repo is on branch `main`, tracking `origin` (the owner's `zabbix_agent` repository on
   GitHub); the first commit was pushed by the owner. This machine still has no GitHub credentials (no `gh`, no helper, no token), so
   the owner pushes. Needs: a one-shot credential or an ssh key if the agent should push, then scope or revoke it. The code repo is
