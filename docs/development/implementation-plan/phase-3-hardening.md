@@ -84,7 +84,7 @@ Global constraints and protocol: [index](/unified/user/cj/knowledge/ai_agent/zab
 ### Task 3.5: Self-monitoring
 
 **Files:**
-- Create: `build_health_template` in `/unified/user/cj/ai_agent/zabbix_agent/tools/zbx_provision/spec.py`; `/unified/user/cj/ai_agent/zabbix_agent/tools/health/disk_reporter.py`; attach `zabbix-server` to `${ZBXAI_PREFIX}_model` in `/unified/user/cj/ai_agent/zabbix_agent/deploy/compose.yaml`
+- Create: `build_health_template` in `/unified/user/cj/ai_agent/zabbix_agent/tools/zbx_provision/spec.py`; `/unified/user/cj/ai_agent/zabbix_agent/tools/health/disk_reporter.py`; add service `disk_reporter` (`python -m tools.health.disk_reporter`; `statvfs("/")` inside the container reads its overlay root, which the survey shows is the host's single `/` filesystem, so no bind mount is needed; *unverified*) and attach `zabbix-server` to `${ZBXAI_PREFIX}_model` in `/unified/user/cj/ai_agent/zabbix_agent/deploy/compose.yaml`
 - Test: `/unified/user/cj/ai_agent/zabbix_agent/tests/unit/test_health_template.py`
 
 **Interfaces:**

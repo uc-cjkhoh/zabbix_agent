@@ -12,7 +12,7 @@ Each task ends with a commit step (ask first, Q7).
 ### Task 2.5: `llama-server` runtime, egress check, benchmark, server probes
 
 **Files:**
-- Create: add service `llama` to `/unified/user/cj/ai_agent/zabbix_agent/deploy/compose.yaml`; `/unified/user/cj/ai_agent/zabbix_agent/tools/bench/{estimate.py,run_bench.sh,probe_server.py}`; `/unified/user/cj/knowledge/ai_agent/zabbix_agent/docs/operations/benchmarks.md` (KB)
+- Create: add service `llama` to `/unified/user/cj/ai_agent/zabbix_agent/deploy/compose.yaml` (healthcheck on `/health`; `restart: unless-stopped`); add to `/unified/user/cj/ai_agent/zabbix_agent/deploy/versions.env` a pinned `llama-bench` image if the server image lacks the tool; `/unified/user/cj/ai_agent/zabbix_agent/tools/bench/{estimate.py,run_bench.sh,probe_server.py}`; `/unified/user/cj/knowledge/ai_agent/zabbix_agent/docs/operations/benchmarks.md` (KB)
 - Test: `/unified/user/cj/ai_agent/zabbix_agent/tests/unit/test_estimate.py`
 
 **Interfaces:**
@@ -27,7 +27,7 @@ Each task ends with a commit step (ask first, Q7).
   `${ZBXAI_PREFIX}_model` and `${ZBXAI_PREFIX}_app`, an outbound request to a public address and to the LAN gateway both fail within 3 s. Expected: failure.
   Delete the backlog entry on pass; if egress succeeds, stop and report. Also confirm `llama` reads the model from its named volume under
   SELinux Enforcing (part of verification item `selinux-and-ports`; delete that entry now if Task 1.4 step 6 passed).
-- [ ] **Step 6: [TESTBED] Benchmark (verification item `model-benchmark`):** `/unified/user/cj/ai_agent/zabbix_agent/tools/bench/run_bench.sh` runs `llama-bench` for 8B and 3B at the
+- [ ] **Step 6: [TESTBED] Benchmark (verification items `model-benchmark` and `llama-bench-image`):** first check whether the pinned `server` image contains `llama-bench` (*unverified*; it may ship only `llama-server`); if not, `/unified/user/cj/ai_agent/zabbix_agent/tools/bench/run_bench.sh` uses the pinned `full` image from `/unified/user/cj/ai_agent/zabbix_agent/deploy/versions.env`, on the model network with the same volume read-only. `/unified/user/cj/ai_agent/zabbix_agent/tools/bench/run_bench.sh` runs `llama-bench` for 8B and 3B at the
   real prompt size, at 6 and 8 threads (6 leaves Zabbix and PostgreSQL CPU headroom); save the JSON; record prompt-processing and generation rates in `/unified/user/cj/knowledge/ai_agent/zabbix_agent/docs/operations/benchmarks.md`. Choose 8B when
   `estimate_latency(pp, tg) <= 120.0`, else 3B, and set the p95 analysis target from the result. Delete the backlog entry.
 - [ ] **Step 7: [TESTBED] Server probes (verification item `llama-server-checks`):** `/unified/user/cj/ai_agent/zabbix_agent/tools/bench/probe_server.py` sends ten fixed prompts with the
@@ -74,7 +74,7 @@ Each task ends with a commit step (ask first, Q7).
 
 **Files:**
 - Create: `/unified/user/cj/ai_agent/zabbix_agent/src/zbxai/receiver.py`, `/unified/user/cj/ai_agent/zabbix_agent/src/zbxai/worker.py`, `/unified/user/cj/ai_agent/zabbix_agent/deploy/zabbix/media/zbxai_webhook.js`; extend `/unified/user/cj/ai_agent/zabbix_agent/tools/zbx_provision/spec.py`
-  with `build_webhook_media(cfg) -> MediaTypeSpec` and `build_action(cfg) -> ActionSpec`; add services `receiver`, `worker` to compose
+  with `build_webhook_media(cfg) -> MediaTypeSpec` and `build_action(cfg) -> ActionSpec`; add services `receiver` (`python -m zbxai.receiver`, uvicorn), `worker` (`python -m zbxai.worker`) and `mcp` (`python -m zbxai.mcp_server`, streamable HTTP on 8001) to compose, each from the `runtime` image with a healthcheck, its own secret sub-directory and `restart: unless-stopped`; `receiver`, `worker` and `mcp` each have a `__main__` that reads `Settings` and starts
 - Test: `/unified/user/cj/ai_agent/zabbix_agent/tests/unit/test_receiver.py`, `/unified/user/cj/ai_agent/zabbix_agent/tests/unit/test_worker.py`, `/unified/user/cj/ai_agent/zabbix_agent/tests/integration/test_receiver_live.py`
 
 **Interfaces:**
@@ -90,7 +90,7 @@ Each task ends with a commit step (ask first, Q7).
   (uses `hmac.compare_digest`), `test_errors_and_healthz_never_contain_secrets`, `test_worker_backs_off_on_dependency_error`,
   `test_worker_never_runs_two_events_at_once`.
 - [ ] **Step 2: Run, expecting FAIL. Step 3: Implement. Step 4: Run, expecting PASS.**
-- [ ] **Step 5: [TESTBED] Deploy** `receiver`, `worker`, `llama`, the MCP server; run `apply` with the new media type and action.
+- [ ] **Step 5: [TESTBED] Deploy** `receiver`, `worker`, `llama`, the MCP server with `/unified/user/cj/ai_agent/zabbix_agent/scripts/deploy.sh up` (the `provision` one-shot applies the new media type and action; the webhook script is part of the spec sent through the API, not a mounted file).
 - [ ] **Step 6: [TESTBED] Reachability (verification item `receiver-reachability`):** run Zabbix's `mediatype.test` against the media type
   with a sample event. Expected: the receiver answers 202 and a row is queued, and
   `/unified/user/cj/ai_agent/zabbix_agent/scripts/ship-test.sh --live /unified/user/cj/ai_agent/zabbix_agent/tests/integration/test_receiver_live.py` passes. Delete the backlog entry on pass.

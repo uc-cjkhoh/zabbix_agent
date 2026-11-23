@@ -86,6 +86,9 @@ All names start with `zbxai_`. Image tags and digests are fixed in `versions.env
 | `zbxai_loadgen`, `zbxai_fault_*` | app | none | none | none | 0.4 GB |
 | `zbxai_pgtest`, `zbxai_test_run` | test | 5432 (pgtest) | none | none | 0.5 GB, transient |
 
+Also created, none long-lived: the volume `zbxai_secrets` (written by one-shot `zbxai_secrets_init`, read read-only by each service from its own
+sub-directory) and the one-shots `zbxai_migrate` and `zbxai_provision` (app network, removed after they finish; section 10).
+
 Total about 10 to 11 GB of 15 GiB, matching the design budget. The worker calls the bounded Zabbix client in-process;
 the MCP server is the model's only path to Zabbix and is called only when model lookups are enabled (off by default).
 
@@ -123,9 +126,12 @@ model are downloaded at setup by the Docker daemon and the one-shot container on
 - **Links:** `ZBXAI_ZBXWEB_BASE_URL` stays unset, so Grafana shows event IDs as text (viewers cannot reach loopback).
 
 ## 7. Storage, secrets, time
-- **Named volumes only** (SELinux Enforcing, no bind labels): `zbxai_pgdata`, `zbxai_models`, `zbxai_grafana`.
-- **Secrets** are files in a git-ignored `deploy/secrets/` in the grant directory, read by the services as compose secrets; if
-  SELinux blocks them, a `0600` env file is the fallback (D2). Values never appear in this KB.
+- **Named volumes only** (SELinux Enforcing, no bind labels, and the daemon may be remote): `zbxai_pgdata`, `zbxai_models`, `zbxai_grafana`, `zbxai_secrets`.
+  Grafana's plugin lives in the image (outside the volume); provisioning, dashboards, PostgreSQL init and migrations are baked into images. Compose sets explicit
+  `name:` on every network and volume so no name gets a second prefix.
+- **Secrets** are created by a one-shot container in the named volume `zbxai_secrets` (one sub-directory per consuming service, mounted
+  read-only, owner and mode set for that service's non-root user), not bind-mounted files; if the volume `subpath` option or SELinux blocks this, a `0600` env
+  file inside the same volume is the fallback (D2). *Unverified* (backlog `compose-remote-and-secrets`). Values never appear in this KB.
 - **Disk (estimate, unverified):** images and the two model files take about 10 GB; Zabbix history grows with NVPS (83 at
   the reference, 250 at 3 times). The rehearsal starts at history 3 days and trends 30 days and is resized from the
   measurement in Task 1.4 step 8. The 40 GB free is shared.
@@ -138,7 +144,7 @@ model are downloaded at setup by the Docker daemon and the one-shot container on
 - `llama-server` threads: benchmark at 6 and 8 on 8 vCPU; 6 leaves headroom for Zabbix and PostgreSQL. Pick from the result.
 - The ClickHouse project shares the host; never exceed the grant, and stop transient containers when a run ends.
 
-## 9. Values for `.env` (git-ignored; never in `deploy/` or `src/`)
+## 9. Values for `.env` (git-ignored, at the code repo root; never in `deploy/` or `src/`)
 | Key | Value |
 |---|---|
 | `ZBXAI_PREFIX` | `zbxai` |
@@ -149,11 +155,13 @@ model are downloaded at setup by the Docker daemon and the one-shot container on
 | `ZBXAI_RECEIVER_URL` | `http://zbxai_receiver:8000/v1/events` |
 
 ## 10. Order and teardown
-- **Up:** `check_env` with live subnets, networks, `postgres` (roles), `zabbix_server`, `zabbix_web`, `grafana`, then `llama`,
-  `receiver`, `worker`, `mcp`, then reporters. **Down:** reverse order. `teardown.sh` removes only names starting `zbxai`.
+- **Up** (each step idempotent, one command, no manual step; plan contract R7): `check_env` with live subnets (in a container), networks, `secrets-init` (one-shot),
+  `postgres` (roles), `migrate` (one-shot), `zabbix_server`, `zabbix_web`, `provision` (one-shot: Admin password, template, roles, users, the two tokens),
+  `grafana`, then `llama`, `receiver`, `worker`, `mcp`, then reporters. Services wait on healthchecks. **Down:** reverse order. `teardown.sh` removes only
+  names starting `zbxai`; `--volumes` adds the named volumes and `--models` the model volume. The one-shots are transient containers named `zbxai_secrets_init`, `zbxai_migrate`, `zbxai_provision`.
 - The seeded-fault and load containers are transient and removed after each run.
 
 ## 11. Checks that confirm this topology
-Egress blocked on `app` and `model` (Task 2.5 step 5); published ports on dual-attached containers and from the workstation
+Cold rebuild from nothing and a second `up` with no change (Task 1.5 step 6, Task 4.1 step 6); secrets volume readable only by its service (Task 1.1 step 5); egress blocked on `app` and `model` (Task 2.5 step 5); published ports on dual-attached containers and from the workstation
 (Task 1.4 step 6); webhook to the receiver (Task 2.8 step 6); the SELECT-only role (Task 1.2, Task 2.9 step 5); disk budget
 (Task 1.4 step 8).

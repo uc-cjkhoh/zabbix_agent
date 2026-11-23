@@ -36,3 +36,13 @@ changes the host beyond this project's own containers.
 - **grafana-plugin-compat** (high; small) - open: the Zabbix plugin (v6.11.0) against the chosen Zabbix version, using an API
   token on the read-only role ([D11](../../decisions/d11-grafana-monitoring-ui.md)). Needs: a running Zabbix and Grafana.
 - **disk-budget** (medium; small) - open: history and trend retention sized against 40 GB shared with the model and images.
+- **compose-remote-and-secrets** (high; small) - open: with Compose 5.6 and Engine 29 under SELinux Enforcing, a compose run
+  against a remote daemon works with no host path; a named volume of secrets with per-service `subpath` mounts is readable by each
+  official image's non-root user and not by the others ([D2](../../decisions/d2-docker-isolation.md)). Needs: the testbed and the go-ahead.
+- **grafana-plugin-install-path** (medium; trivial) - open: the Zabbix app plugin installed outside the Grafana volume loads
+  through `GF_PATHS_PLUGINS`, is enabled by provisioning (or needs a manual step, which would break reproducibility), and a rebuilt image
+  replaces it. Needs: a running Grafana.
+- **llama-bench-image** (medium; trivial) - open: whether the `llama.cpp` server image contains `llama-bench`; if not, a second image is
+  pinned for the benchmark. Needs: the pinned image pulled.
+- **cold-reproduction** (high; medium) - open: from nothing but Docker, the repo and a filled `.env`, `deploy.sh up` reaches the Phase 1
+  acceptance with no manual step, and a second `up` changes nothing; repeated on a second clean host. Needs: the testbed, later a second host.

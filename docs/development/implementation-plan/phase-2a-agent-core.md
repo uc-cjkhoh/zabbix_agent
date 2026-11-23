@@ -12,7 +12,7 @@ ends with a commit step (ask first, Q7).
 ### Task 2.0: Scaffold and settings
 
 **Files:**
-- Create: `/unified/user/cj/ai_agent/zabbix_agent/pyproject.toml`, `/unified/user/cj/ai_agent/zabbix_agent/Dockerfile`, `/unified/user/cj/ai_agent/zabbix_agent/src/zbxai/__init__.py`, `/unified/user/cj/ai_agent/zabbix_agent/src/zbxai/config.py`
+- Create: `/unified/user/cj/ai_agent/zabbix_agent/src/zbxai/__init__.py`; extend `/unified/user/cj/ai_agent/zabbix_agent/pyproject.toml` with the agent's dependencies, copy `/unified/user/cj/ai_agent/zabbix_agent/src/` into the `runtime` target of `/unified/user/cj/ai_agent/zabbix_agent/Dockerfile` (created in Task 1.1) and regenerate `/unified/user/cj/ai_agent/zabbix_agent/requirements.lock` in a container, `/unified/user/cj/ai_agent/zabbix_agent/src/zbxai/config.py`
 - Test: `/unified/user/cj/ai_agent/zabbix_agent/tests/unit/test_config.py`
 
 **Interfaces:**
@@ -24,8 +24,8 @@ ends with a commit step (ask first, Q7).
 - [ ] **Step 1: Write failing tests:** `test_settings_reads_secret_from_file`, `test_settings_repr_hides_secrets` (neither `repr` nor
   `str` contains the secret), `test_missing_required_setting_names_key_only` (the error names the variable, never a value),
   `test_model_lookups_default_off`.
-- [ ] **Step 2: Run, expecting FAIL. Step 3: Implement.** The `/unified/user/cj/ai_agent/zabbix_agent/Dockerfile` is `python:3.12-slim` at the pinned digest, a non-root
-  user, no build tools in the final image. Confirm the `mcp` SDK's current server API against its docs before Task 2.4.
+- [ ] **Step 2: Run, expecting FAIL. Step 3: Implement.** The `runtime` target (a minimal one exists from Task 1.1) of `/unified/user/cj/ai_agent/zabbix_agent/Dockerfile` is `python:3.12-slim` taken from `PYTHON_TAG@PYTHON_DIGEST` through a build ARG, dependencies installed from `/unified/user/cj/ai_agent/zabbix_agent/requirements.lock` with `--require-hashes`, a non-root
+  user, no build tools in the final image, `TZ=UTC`, and no `CMD` (each service sets its own command, contract R10). Confirm the `mcp` SDK's current server API against its docs before Task 2.4.
 - [ ] **Step 4: Run, expecting PASS.**
 
 ### Task 2.1: Domain models and event validation

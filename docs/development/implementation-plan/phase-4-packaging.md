@@ -11,7 +11,7 @@ Global constraints and protocol: [index](/unified/user/cj/knowledge/ai_agent/zab
 ### Task 4.1: Portable packaging
 
 **Files:**
-- Modify: `/unified/user/cj/ai_agent/zabbix_agent/deploy/compose.yaml`, `/unified/user/cj/ai_agent/zabbix_agent/deploy/.env.example`
+- Modify: `/unified/user/cj/ai_agent/zabbix_agent/deploy/compose.yaml`, `/unified/user/cj/ai_agent/zabbix_agent/deploy/.env.example`; Create: `/unified/user/cj/ai_agent/zabbix_agent/scripts/bundle.sh` (optional, owner decides whether the real target can pull from public registries: writes `docker save` of every pinned image plus the model files and their checksums into one directory, and `/unified/user/cj/ai_agent/zabbix_agent/scripts/deploy.sh load` reads it; *unverified*, open question)
 - Create: `/unified/user/cj/knowledge/ai_agent/zabbix_agent/docs/operations/sizing.md` (KB)
 - Test: `/unified/user/cj/ai_agent/zabbix_agent/tests/unit/test_portable.py`
 
@@ -21,13 +21,17 @@ Global constraints and protocol: [index](/unified/user/cj/knowledge/ai_agent/zab
   Zabbix agent (the rehearsal uses `trapper`).
 
 - [ ] **Step 1: Write failing tests:** `test_no_testbed_values_in_src_or_deploy` (no `10.168.`, `172.17.`, `172.25.`, `/unified/`, `chcluster`,
-  the testbed login, or a literal port in `/unified/user/cj/ai_agent/zabbix_agent/src/` or `/unified/user/cj/ai_agent/zabbix_agent/deploy/`), `test_exactly_one_model_profile_starts`, `test_external_db_needs_no_bundled_db`,
-  `test_agent_item_type_template` (`item_type="agent"` produces agent-type items with the same keys and triggers).
+  the testbed login, or a literal published (host-side) port in `/unified/user/cj/ai_agent/zabbix_agent/src/` or `/unified/user/cj/ai_agent/zabbix_agent/deploy/`), `test_exactly_one_model_profile_starts`, `test_external_db_needs_no_bundled_db`,
+  `test_agent_item_type_template` (`item_type="agent"` produces agent-type items with the same keys and triggers), `test_no_secret_or_env_in_shipped_tar` (the include list of contract R1 excludes `/unified/user/cj/ai_agent/zabbix_agent/.env` and secrets).
 - [ ] **Step 2: Run, expecting FAIL. Step 3: Implement** the profiles and options. **Step 4: Run, expecting PASS.**
 - [ ] **Step 5: Write `/unified/user/cj/knowledge/ai_agent/zabbix_agent/docs/operations/sizing.md`** from the measured numbers in `/unified/user/cj/knowledge/ai_agent/zabbix_agent/docs/operations/benchmarks.md`: inputs (modules, items per module, interval, NVPS), the
   formulas (RAM = Zabbix and database + model file + context + agent; latency from `estimate_latency`; disk per day from NVPS and
   retention), and the measured values from the rehearsal, each labelled measured or estimated. State that the real target's numbers
   are measured again (D13).
+- [ ] **Step 6: Cold-reproduction drill on a second, clean Docker host (verification item `cold-reproduction`).** A host with only Docker, `ssh` or a local shell, and no prior state of this project
+  (the testbed after `/unified/user/cj/ai_agent/zabbix_agent/scripts/teardown.sh --volumes --models` is acceptable if no second host exists, and the result says which). Inputs: a fresh copy of the repo and a `/unified/user/cj/ai_agent/zabbix_agent/.env` filled from `/unified/user/cj/ai_agent/zabbix_agent/deploy/.env.example`; nothing else. Run `/unified/user/cj/ai_agent/zabbix_agent/scripts/deploy.sh up` in **local** mode,
+  then run `/unified/user/cj/ai_agent/zabbix_agent/scripts/ship-test.sh --live /unified/user/cj/ai_agent/zabbix_agent/tests/e2e` in its local mode, then `/unified/user/cj/ai_agent/zabbix_agent/scripts/deploy.sh up` again. Expected: the stack and the seeded-fault end-to-end test pass with the owner's inputs limited to the `/unified/user/cj/ai_agent/zabbix_agent/.env` and the licence-gated model download; the second `up` changes nothing; no value from the first host appears
+  in `/unified/user/cj/ai_agent/zabbix_agent/src/` or `/unified/user/cj/ai_agent/zabbix_agent/deploy/`. Record the elapsed time and every manual step needed (target: none) in `/unified/user/cj/knowledge/ai_agent/zabbix_agent/docs/operations/benchmarks.md`.
 
 ### Task 4.2: Sync the KB with what was built
 
