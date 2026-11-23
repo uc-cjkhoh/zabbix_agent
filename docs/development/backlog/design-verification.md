@@ -15,19 +15,19 @@ changes the host beyond this project's own containers.
   `baselinedev`, `trendstl`. Needs: the chosen version's docs, then a test trigger.
 - **readonly-role-test** (high; small) - open: show that a User-type role with only `*.get` allowed cannot write
   ([D7](../../decisions/d7-thin-readonly-mcp-server.md)). Needs: a running Zabbix.
-- **gguf-sourcing** (high; small) - open: where the Llama 3.1 8B and 3.2 3B GGUF files come from, their
-  checksums, and the Llama licence acceptance, downloaded at setup only ([D9](../../decisions/d9-model-and-runtime.md)).
-  Needs: the owner to accept the licence, and the go-ahead to download about 5 GB of the 40 GB free.
+- **gguf-sourcing** (high; small) - partly done: the 3.2 3B file is sourced, pinned and verified (2026-11-23, see
+  [testbed](../../operations/testbed.md)). Open: the Llama 3.1 8B GGUF source, checksum and licence acceptance, downloaded at
+  setup only ([D9](../../decisions/d9-model-and-runtime.md)). Needs: the owner to name the 8B source, and the go-ahead to download about 5 GB.
 - **model-benchmark** (high; small) - open: `llama-bench` for 8B and 3B on the testbed with the real prompt size; the
   server's own response timings as a check. Needs: the model files.
 - **llama-server-checks** (medium; small) - open: whether `--jinja` is needed, whether tool calls are reliable, whether
   `tool_choice` and `json_schema` work on `/v1`; if not, extra model-driven lookups stay off. Needs: the model running.
 - **receiver-reachability** (high; trivial) - open: a Zabbix webhook can post to the receiver's private Docker address (the
   docs show no restriction, which is not proof). Needs: running Zabbix and receiver.
-- **internal-network-egress** (high; trivial) - open: an internal-only Docker network really blocks egress under firewalld, so
-  the model runtime cannot reach out ([D12](../../decisions/d12-operational-data-stays-in-network.md)). Needs: containers running.
-- **selinux-and-ports** (high; small) - open: official images (Zabbix, `llama-server`, Grafana) with named volumes under SELinux
-  Enforcing; whether Zabbix web and Grafana on 3000 reach the LAN through firewalld. Grafana is the only notification path,
+- **internal-network-egress** (high; trivial) - partly done: `zbxai_model` blocks egress (a public address and the LAN gateway both
+  fail within 3 s, 2026-11-23). Open: the same check on `zbxai_app` ([D12](../../decisions/d12-operational-data-stays-in-network.md)). Needs: containers on `app`.
+- **selinux-and-ports** (high; small) - partly done: `llama-server` reads the model from a named volume under SELinux Enforcing,
+  as a non-root user with a read-only root filesystem (2026-11-23). Open: Zabbix and Grafana images with named volumes; whether Zabbix web and Grafana on 3000 reach the LAN through firewalld. Grafana is the only notification path,
   so this gates the project. Testable from the workstation on the same LAN once containers run; a privileged session or the
   user's help may be needed ([testbed](../../operations/testbed.md)).
 - **pg-datasource-readonly** (high; small) - open: Grafana's PostgreSQL data source with a SELECT-only role shows the
@@ -42,7 +42,7 @@ changes the host beyond this project's own containers.
 - **grafana-plugin-install-path** (medium; trivial) - open: the Zabbix app plugin installed outside the Grafana volume loads
   through `GF_PATHS_PLUGINS`, is enabled by provisioning (or needs a manual step, which would break reproducibility), and a rebuilt image
   replaces it. Needs: a running Grafana.
-- **llama-bench-image** (medium; trivial) - open: whether the `llama.cpp` server image contains `llama-bench`; if not, a second image is
-  pinned for the benchmark. Needs: the pinned image pulled.
+- **llama-bench-image** (medium; trivial) - answered: the pinned `server` image has no `llama-bench` binary (only its libraries; checked
+  2026-11-23). Open: pin the `full` image (tag and digest) in `deploy/versions.env` for the benchmark. Needs: the go-ahead to pull it.
 - **cold-reproduction** (high; medium) - open: from nothing but Docker, the repo and a filled `.env`, `deploy.sh up` reaches the Phase 1
   acceptance with no manual step, and a second `up` changes nothing; repeated on a second clean host. Needs: the testbed, later a second host.

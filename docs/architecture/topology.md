@@ -7,7 +7,7 @@ components: []
 # Topology
 
 Detail behind the [overview](overview.md) and the [design plan](design-plan.md). It owns subnets and ports
-([D3](../decisions/d3-network-isolation.md)). **Status: designed, nothing created.** Observed facts come from the
+([D3](../decisions/d3-network-isolation.md)). **Status: designed; only the `zbxai_model` network, the `zbxai_models` volume and `zbxai_llama` (3B model) exist on the testbed, see [testbed](../operations/testbed.md); nothing else is created.** Observed facts come from the
 [testbed survey](../operations/testbed.md); figures marked *estimate* are not measured; items marked *unverified* have a
 check in the [verification backlog](../development/backlog/design-verification.md).
 

@@ -18,7 +18,8 @@ Global constraints and protocol: [index](/unified/user/cj/knowledge/ai_agent/zab
 - Produces: `/unified/user/cj/ai_agent/zabbix_agent/.env` (git-ignored, repo root; created from `/unified/user/cj/ai_agent/zabbix_agent/deploy/.env.example`) keys `ZBXAI_PREFIX`, `ZBXAI_FRONT_SUBNET`, `ZBXAI_APP_SUBNET`, `ZBXAI_MODEL_SUBNET`, `ZBXAI_TEST_SUBNET`,
   `ZBXAI_SETUP_SUBNET`, `ZBXAI_GRAFANA_BIND`, `ZBXAI_GRAFANA_PORT`, `ZBXAI_ZBXWEB_BIND`, `ZBXAI_ZBXWEB_PORT`, `ZBXAI_RECEIVER_URL`,
   `ZBXAI_USED_RANGES` (comma list from the survey: the LAN, `docker0`, the ClickHouse network, plus resolver and proxy ranges when
-  known). Values are in the [topology](/unified/user/cj/knowledge/ai_agent/zabbix_agent/docs/architecture/topology.md).
+  known). Also `LLAMA_CTX_SIZE` (4096) and `LLAMA_THREADS` (6), which `compose.yaml` reads; they exist in `.env` since the llama slice and
+  must stay in `.env.example` and in `check_env`'s key list, or Compose passes an empty `--ctx-size`. Values are in the [topology](/unified/user/cj/knowledge/ai_agent/zabbix_agent/docs/architecture/topology.md).
   `check_env(env: Mapping[str, str], live_subnets: Sequence[str] = ()) -> list[str]` returns problems; empty list means pass.
 
 - [ ] **Step 1: Write the failing tests** in `/unified/user/cj/ai_agent/zabbix_agent/tests/unit/test_envcheck.py`:
@@ -42,6 +43,8 @@ Global constraints and protocol: [index](/unified/user/cj/knowledge/ai_agent/zab
   and digest for each helper image a later task needs (`LLAMA_FULL_*` if `llama-bench` is not in the server image, Task 2.5), each with
   its image digest as `<NAME>_DIGEST` (the multi-architecture index digest; the testbed is linux/amd64). Compose and every `FROM` use
   `tag@digest` (contract R3).
+- **Ruling (2026-11-23, llama slice):** `deploy/versions.env` already exists with `LLAMA_TAG=server` and `LLAMA_DIGEST` (observed on the testbed). Add the other
+  pins to it; keep these two, do not rewrite the file. Cost if wrong: Compose loses the llama image and `fetch-model.sh` fails.
 
 - [ ] **Step 1: [TESTBED] Confirm the grant directory.** Check that the directory the owner named under `/unified/user/cj/` exists on the
   testbed, or can be created by the unprivileged account (no `sudo`). Expected: it exists and is writable. If not, stop and ask the owner.
@@ -66,6 +69,9 @@ Global constraints and protocol: [index](/unified/user/cj/knowledge/ai_agent/zab
 
 **Interfaces:**
 - Produces: named volume `zbxai_models` holding the two GGUF files; `/unified/user/cj/ai_agent/zabbix_agent/deploy/models.sha256` with their checksums.
+- **Ruling (2026-11-23, llama slice):** only the 3.2 3B file is fetched so far (Llama 3.2 3B Instruct Q4_K_M, bartowski repository at commit `5ab33fa94d1d`); add the
+  8B line to `models.sources` and `models.sha256` when the owner names its source. `scripts/fetch-model.sh` runs its one-shots in the pinned llama server image
+  (it has `curl` and `sha256sum`), not a separate helper image, so no extra image is pulled. Cost if wrong: the helper-image pin in step 3 is unused.
 
 - [ ] **Step 1: Owner gate.** The owner accepts the Llama 3.1 and 3.2 licences and names the GGUF source. Do not download
   before this. Record in `/unified/user/cj/ai_agent/zabbix_agent/deploy/models.sources` the repository revision (a commit hash, not a branch) and the SHA-256 the publisher lists for each

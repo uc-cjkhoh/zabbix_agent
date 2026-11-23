@@ -33,12 +33,14 @@ A local Zabbix AI agent: Zabbix detects problems and Grafana shows them at once;
 read-only MCP server, stores an analysis that Grafana shows beside the problem. Grafana is the only notification surface. Status: design plan approved; implementation plan written, awaiting the owner's review.
 
 ## 5. Build, run, test, deploy
-None yet (no code). Safe-operation rules for the testbed: [docs/operations/testbed.md](docs/operations/testbed.md).
+Only the llama slice exists (code root `/unified/user/cj/ai_agent/zabbix_agent/`, on the workstation and copied to the testbed). On the testbed, from that root:
+`./scripts/fetch-model.sh` (one-time download), `docker compose --env-file .env --env-file deploy/versions.env -f deploy/compose.yaml up -d` (start; `down` stops it,
+the volume `zbxai_models` is removed separately), `./scripts/check-llama.sh` (egress, health, one chat). Safe-operation rules for the testbed: [docs/operations/testbed.md](docs/operations/testbed.md).
 Never start, stop or reconfigure anything on the testbed without the user asking. Credentials live only in
 the git-ignored `docs/operations/credentials.local.md`.
 
 ## 6. Source layout
-No source yet.
+Code root `/unified/user/cj/ai_agent/zabbix_agent/` (not a git repo yet): `deploy/` (compose.yaml, versions.env, models.sources, models.sha256), `scripts/` (fetch-model.sh, check-llama.sh). No Python source yet.
 
 ## 7. Design rules
 No custom UI is built (Grafana is the monitoring UI, D11); UI/browser rules from agent-behavior are dropped.

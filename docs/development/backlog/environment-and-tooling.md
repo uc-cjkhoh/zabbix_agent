@@ -9,9 +9,6 @@ components: []
 - **testbed-privileged-checks** (low; small) - open: firewalld rules, who owns each listening socket, and
   whether SELinux will block bind mounts are unverified because `sudo` needs a password. Needs: the user to
   run the commands or to authorise a privileged session.
-- **testbed-download-test** (medium; trivial) - open: only DNS to the registries was checked. Confirm that an
-  image pull and a model download actually work through the network path before the plan depends on them.
-  Needs: the user's go-ahead to pull a small image on the testbed.
 - **kb-lint-hook** (medium; small) - open: not wired. PostToolUse hook on `Write|Edit` reporting line-limit,
   front-matter, index and link problems, per agent-behavior `tooling/hooks.md`. Editing
   `.claude/settings.json` needs the user's approval (Q6).
