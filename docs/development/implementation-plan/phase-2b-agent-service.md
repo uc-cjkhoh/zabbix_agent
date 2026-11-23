@@ -6,14 +6,14 @@ components: []
 
 # Phase 2b — Agent service (the analysis reaches Grafana)
 
-Global constraints and protocol: [index](index.md). Needs Phase 2a, Task 0.3 (model files) and Task 1.4 (Grafana).
+Global constraints and protocol: [index](/unified/user/cj/knowledge/ai_agent/zabbix_agent/docs/development/implementation-plan/index.md). Needs Phase 2a, Task 0.3 (model files) and Task 1.4 (Grafana).
 Each task ends with a commit step (ask first, Q7).
 
 ### Task 2.5: `llama-server` runtime, egress check, benchmark, server probes
 
 **Files:**
-- Create: add service `llama` to `deploy/compose.yaml`; `tools/bench/{estimate.py,run_bench.sh,probe_server.py}`; `docs/operations/benchmarks.md` (KB)
-- Test: `tests/unit/test_estimate.py`
+- Create: add service `llama` to `/unified/user/cj/ai_agent/zabbix_agent/deploy/compose.yaml`; `/unified/user/cj/ai_agent/zabbix_agent/tools/bench/{estimate.py,run_bench.sh,probe_server.py}`; `/unified/user/cj/knowledge/ai_agent/zabbix_agent/docs/operations/benchmarks.md` (KB)
+- Test: `/unified/user/cj/ai_agent/zabbix_agent/tests/unit/test_estimate.py`
 
 **Interfaces:**
 - Produces: service `llama` from `ghcr.io/ggml-org/llama.cpp:server` at the pinned digest, only on `${ZBXAI_PREFIX}_model`, command
@@ -27,18 +27,18 @@ Each task ends with a commit step (ask first, Q7).
   `${ZBXAI_PREFIX}_model` and `${ZBXAI_PREFIX}_app`, an outbound request to a public address and to the LAN gateway both fail within 3 s. Expected: failure.
   Delete the backlog entry on pass; if egress succeeds, stop and report. Also confirm `llama` reads the model from its named volume under
   SELinux Enforcing (part of verification item `selinux-and-ports`; delete that entry now if Task 1.4 step 6 passed).
-- [ ] **Step 6: [TESTBED] Benchmark (verification item `model-benchmark`):** `run_bench.sh` runs `llama-bench` for 8B and 3B at the
-  real prompt size, at 6 and 8 threads (6 leaves Zabbix and PostgreSQL CPU headroom); save the JSON; record prompt-processing and generation rates in `benchmarks.md`. Choose 8B when
+- [ ] **Step 6: [TESTBED] Benchmark (verification item `model-benchmark`):** `/unified/user/cj/ai_agent/zabbix_agent/tools/bench/run_bench.sh` runs `llama-bench` for 8B and 3B at the
+  real prompt size, at 6 and 8 threads (6 leaves Zabbix and PostgreSQL CPU headroom); save the JSON; record prompt-processing and generation rates in `/unified/user/cj/knowledge/ai_agent/zabbix_agent/docs/operations/benchmarks.md`. Choose 8B when
   `estimate_latency(pp, tg) <= 120.0`, else 3B, and set the p95 analysis target from the result. Delete the backlog entry.
-- [ ] **Step 7: [TESTBED] Server probes (verification item `llama-server-checks`):** `probe_server.py` sends ten fixed prompts with the
+- [ ] **Step 7: [TESTBED] Server probes (verification item `llama-server-checks`):** `/unified/user/cj/ai_agent/zabbix_agent/tools/bench/probe_server.py` sends ten fixed prompts with the
   `tools` field, with and without `--jinja`, plus `tool_choice` and `response_format` json_schema requests. Record what works. Keep
   `ENABLE_MODEL_LOOKUPS` off unless at least 9 of 10 tool calls are valid. Delete the backlog entry.
 
 ### Task 2.6: LLM client
 
 **Files:**
-- Create: `src/zbxai/llm.py`
-- Test: `tests/unit/test_llm.py`
+- Create: `/unified/user/cj/ai_agent/zabbix_agent/src/zbxai/llm.py`
+- Test: `/unified/user/cj/ai_agent/zabbix_agent/tests/unit/test_llm.py`
 
 **Interfaces:**
 - Produces: `Message(role: Literal["system","user","assistant"], content: str)`; `LlamaClient(base_url: str, *, timeout_s: float,
@@ -52,8 +52,8 @@ Each task ends with a commit step (ask first, Q7).
 ### Task 2.7: Analysis pipeline
 
 **Files:**
-- Create: `src/zbxai/pipeline.py`
-- Test: `tests/unit/test_pipeline.py`
+- Create: `/unified/user/cj/ai_agent/zabbix_agent/src/zbxai/pipeline.py`
+- Test: `/unified/user/cj/ai_agent/zabbix_agent/tests/unit/test_pipeline.py`
 
 **Interfaces:**
 - Consumes: `ProblemEvent`, `Analysis`, `NoAnalysis` (2.1); `AnalysisStore` (2.2); `ZabbixClient` (2.3); `LlamaClient`, `Message` (2.6).
@@ -73,9 +73,9 @@ Each task ends with a commit step (ask first, Q7).
 ### Task 2.8: Receiver, worker and the Zabbix webhook
 
 **Files:**
-- Create: `src/zbxai/receiver.py`, `src/zbxai/worker.py`, `deploy/zabbix/media/zbxai_webhook.js`; extend `tools/zbx_provision/spec.py`
+- Create: `/unified/user/cj/ai_agent/zabbix_agent/src/zbxai/receiver.py`, `/unified/user/cj/ai_agent/zabbix_agent/src/zbxai/worker.py`, `/unified/user/cj/ai_agent/zabbix_agent/deploy/zabbix/media/zbxai_webhook.js`; extend `/unified/user/cj/ai_agent/zabbix_agent/tools/zbx_provision/spec.py`
   with `build_webhook_media(cfg) -> MediaTypeSpec` and `build_action(cfg) -> ActionSpec`; add services `receiver`, `worker` to compose
-- Test: `tests/unit/test_receiver.py`, `tests/unit/test_worker.py`, `tests/integration/test_receiver_live.py`
+- Test: `/unified/user/cj/ai_agent/zabbix_agent/tests/unit/test_receiver.py`, `/unified/user/cj/ai_agent/zabbix_agent/tests/unit/test_worker.py`, `/unified/user/cj/ai_agent/zabbix_agent/tests/integration/test_receiver_live.py`
 
 **Interfaces:**
 - Produces: `build_app(store, settings, health: Callable[[], dict]) -> Starlette`. `POST /v1/events`: 202 accepted or grouped, 200 duplicate,
@@ -93,14 +93,14 @@ Each task ends with a commit step (ask first, Q7).
 - [ ] **Step 5: [TESTBED] Deploy** `receiver`, `worker`, `llama`, the MCP server; run `apply` with the new media type and action.
 - [ ] **Step 6: [TESTBED] Reachability (verification item `receiver-reachability`):** run Zabbix's `mediatype.test` against the media type
   with a sample event. Expected: the receiver answers 202 and a row is queued, and
-  `scripts/ship-test.sh --live tests/integration/test_receiver_live.py` passes. Delete the backlog entry on pass.
+  `/unified/user/cj/ai_agent/zabbix_agent/scripts/ship-test.sh --live /unified/user/cj/ai_agent/zabbix_agent/tests/integration/test_receiver_live.py` passes. Delete the backlog entry on pass.
 - [ ] **Step 7: Commit** (ask first, Q7).
 
 ### Task 2.9: AI-analyses panel and the read-only data source
 
 **Files:**
-- Create: `deploy/grafana/dashboards/analyses.json`
-- Test: extend `tests/unit/test_grafana_provisioning.py`
+- Create: `/unified/user/cj/ai_agent/zabbix_agent/deploy/grafana/dashboards/analyses.json`
+- Test: extend `/unified/user/cj/ai_agent/zabbix_agent/tests/unit/test_grafana_provisioning.py`
 
 **Interfaces:**
 - Produces: a table panel on `zbxai-analyses` reading `v_ai_analyses`, newest first, `"refresh": "30s"`, an empty-state message, and a link to
@@ -116,13 +116,13 @@ Each task ends with a commit step (ask first, Q7).
 ### Task 2.10: End-to-end seeded fault
 
 **Files:**
-- Create: `tests/e2e/test_seeded_disk_fault.py`
+- Create: `/unified/user/cj/ai_agent/zabbix_agent/tests/e2e/test_seeded_disk_fault.py`
 
-- [ ] **Step 1: Write the e2e test:** start `disk_fill.sh`; wait for the Zabbix problem; assert the problem is in Grafana within 30 s of Zabbix
+- [ ] **Step 1: Write the e2e test:** start `/unified/user/cj/ai_agent/zabbix_agent/tools/faults/disk_fill.sh`; wait for the Zabbix problem; assert the problem is in Grafana within 30 s of Zabbix
   raising it, then assert a `v_ai_analyses` row for that event with at least one hypothesis whose evidence ids exist, within the benchmark's
-  p95. Record the times in `benchmarks.md`.
-- [ ] **Step 2: [TESTBED] Run** `scripts/ship-test.sh --live tests/e2e` with the stack up. Expected: PASS. If the analysis is late, the problem display must still
+  p95. Record the times in `/unified/user/cj/knowledge/ai_agent/zabbix_agent/docs/operations/benchmarks.md`.
+- [ ] **Step 2: [TESTBED] Run** `/unified/user/cj/ai_agent/zabbix_agent/scripts/ship-test.sh --live /unified/user/cj/ai_agent/zabbix_agent/tests/e2e` with the stack up. Expected: PASS. If the analysis is late, the problem display must still
   have passed its own assertion first.
 - [ ] **Step 3: Owner scoring.** Ask the owner to score the analysis of each seeded fault (right cause: yes or no; any invented evidence: yes or
-  no) and record the scores in `benchmarks.md`. Invented evidence in any analysis is a defect to fix before Phase 3.
+  no) and record the scores in `/unified/user/cj/knowledge/ai_agent/zabbix_agent/docs/operations/benchmarks.md`. Invented evidence in any analysis is a defect to fix before Phase 3.
 - [ ] **Step 4: Commit** (ask first, Q7).
