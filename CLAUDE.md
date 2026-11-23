@@ -50,7 +50,7 @@ The one copy of the tree.
 ├── README.md  CLAUDE.md  CHANGELOG.md  .gitignore
 └── docs/
     ├── README.md
-    ├── architecture/             # index.md, overview.md, design-plan.md, topology.md
+    ├── architecture/             # index.md, overview.md, design-plan.md, topology.md, topology-facts.md
     ├── decisions/                # README.md (index + open questions), d1..d13
     ├── operations/               # testbed.md, credentials.local.md (git-ignored)
     └── development/              # coding-standards, review-guidelines, implementation-plan/, backlog/, run-logs/, updates/ (generated)
