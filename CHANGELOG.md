@@ -7,6 +7,7 @@ One table per date, times in UTC+8. Commits that only touch this file are not li
 
 | Time (UTC+8) | Change | Commits |
 |---|---|---|
+| 10:56 | docs: record D15, llama LAN access through an authenticated proxy | `f7a894a` |
 | 08:20 | docs: propose LLM settings, capabilities, prediction and topology for the Zabbix agent | `875736b` |
 
 ## 2026-11-23
