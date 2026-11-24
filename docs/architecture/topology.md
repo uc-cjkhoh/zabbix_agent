@@ -7,7 +7,7 @@ components: []
 # Topology
 
 Detail behind the [overview](overview.md) and the [design plan](design-plan.md). It owns subnets and ports
-([D3](../decisions/d3-network-isolation.md)). **Status: designed; only the `zbxai_model` network, the `zbxai_models` volume and `zbxai_llama` (3B model) exist on the testbed, see [testbed](../operations/testbed.md); nothing else is created.** Observed facts come from the
+([D3](../decisions/d3-network-isolation.md)). **Status: designed; only the `zbxai_model` and `zbxai_front` networks, the `zbxai_models` and `zbxai_edge_conf` volumes, `zbxai_llama` (3B model) and its proxy `zbxai_edge` exist on the testbed, see [testbed](../operations/testbed.md); nothing else is created.** Observed facts come from the
 [testbed survey](../operations/testbed.md); figures marked *estimate* are not measured; items marked *unverified* have a
 check in the [verification backlog](../development/backlog/design-verification.md).
 
@@ -52,9 +52,9 @@ check in the [verification backlog](../development/backlog/design-verification.m
 ## 3. Networks
 | Network | Subnet | Internal | Members | Purpose |
 |---|---|---|---|---|
-| `zbxai_front` | 172.30.60.0/24 | no | grafana, zabbix_web | Only path to published ports |
+| `zbxai_front` | 172.30.60.0/24 | no | grafana, zabbix_web, edge | Only path to published ports |
 | `zbxai_app` | 172.30.61.0/24 | yes | all services except llama | Service traffic; no egress |
-| `zbxai_model` | 172.30.62.0/24 | yes | llama, worker, zabbix_server | Model traffic; no egress |
+| `zbxai_model` | 172.30.62.0/24 | yes | llama, edge, worker, zabbix_server | Model traffic; no egress |
 | `zbxai_test` | 172.30.63.0/24 | yes | pgtest, test_run | Throwaway test runs |
 | `zbxai_setup` | 172.30.64.0/24 | no | the model download container | Setup downloads only |
 
@@ -81,7 +81,8 @@ All names start with `zbxai_`. Image tags and digests are fixed in `versions.env
 | `zbxai_receiver` | app | 8000 | none | none | 0.2 GB |
 | `zbxai_worker` | app, model | none | none | none | 0.3 GB |
 | `zbxai_mcp` | app | 8001 (streamable HTTP) | none | none | 0.1 GB |
-| `zbxai_llama` | model | 8080 | none | `zbxai_models` (read-only) | 6.0 GB |
+| `zbxai_llama` | model | 8080 | none | `zbxai_models` (read-only) | 6.0 GB (8B); the 3B observed at 1.8 GB (4k context), 4.9 GB idle and 6.3 GB after a 12.5k prompt (32k context) |
+| `zbxai_edge` (nginx, [D15](../decisions/d15-llama-lan-access-through-authenticated-proxy.md)) | front, model | 8080 | 0.0.0.0:18081 (needs the API key except `/health`) | `zbxai_edge_conf` (read-only) | 0.02 GB, *estimate* |
 | `zbxai_disk_reporter` | app | none | none | none | 0.05 GB |
 | `zbxai_loadgen`, `zbxai_fault_*` | app | none | none | none | 0.4 GB |
 | `zbxai_pgtest`, `zbxai_test_run` | test | 5432 (pgtest) | none | none | 0.5 GB, transient |
@@ -107,6 +108,8 @@ the MCP server is the model's only path to Zabbix and is called only when model 
 | grafana | zabbix_web | JSON-RPC, its own read-only token | app | Problems view, trends |
 | grafana | postgres | PostgreSQL as `zbxai_grafana_ro` (SELECT-only) | app | AI-analyses table |
 | people | grafana | HTTP 13000 | LAN, front | The only notification surface |
+| people, tools | edge | HTTP 18081, bearer or basic auth | LAN, front | Remote chat and web UI for the model (D15; not part of the agent flow) |
+| edge | llama | HTTP 8080 | model | Forwards authenticated requests |
 | owner | zabbix_web | HTTP 18080 through an ssh tunnel | ssh, front | Fallback view and administration |
 | workstation | testbed | ssh 22 | LAN | Docker CLI and test streams |
 
@@ -118,6 +121,7 @@ model are downloaded at setup by the Docker daemon and the one-shot container on
 - **Zabbix web** is admin-capable and only a fallback view, so it is published on the testbed's loopback only. Reach it with
   an ssh tunnel to the testbed's own loopback (forward a local port to 127.0.0.1:18080 on the testbed). Use the same tunnel for
   Grafana if the firewall blocks 13000: it needs no firewall change.
+- **Llama** is reachable on `http://<testbed>:18081` through the authenticated proxy only ([D15](../decisions/d15-llama-lan-access-through-authenticated-proxy.md)); the key is in the git-ignored `deploy/secrets/llama-api-key`. Plain HTTP; the llama container itself publishes nothing. Not drawn in the diagram in section 2: `zbxai_edge` sits on `front` and `model`.
 - **Zabbix server 10051 is not published**: no outside agents report in (D13).
 - **Firewall, unverified:** firewalld is active and its rules are unreadable here. Docker's own NAT rules may route
   published ports around firewalld zones, and Docker 29 may behave differently again, so the port may be reachable
@@ -151,6 +155,8 @@ model are downloaded at setup by the Docker daemon and the one-shot container on
 | `ZBXAI_FRONT_SUBNET` / `_APP_` / `_MODEL_` / `_TEST_` / `_SETUP_` | 172.30.60.0/24, .61.0/24, .62.0/24, .63.0/24, .64.0/24 |
 | `ZBXAI_GRAFANA_BIND`, `ZBXAI_GRAFANA_PORT` | 10.168.50.40, 13000 |
 | `ZBXAI_ZBXWEB_BIND`, `ZBXAI_ZBXWEB_PORT` | 127.0.0.1, 18080 |
+| `ZBXAI_EDGE_BIND`, `ZBXAI_EDGE_PORT` | 0.0.0.0, 18081 (llama proxy, [D15](../decisions/d15-llama-lan-access-through-authenticated-proxy.md)) |
+| `LLAMA_CTX_SIZE`, `LLAMA_THREADS` | 32768, 6 (threads: benchmark decides, 6 or 8; the agent's prompts are about 1500 tokens, so lower the context before the full stack runs if RAM is short) |
 | `ZBXAI_USED_RANGES` | 10.168.48.0/22, 172.17.0.0/16, 172.25.0.0/24 (add resolver and proxy ranges once known) |
 | `ZBXAI_RECEIVER_URL` | `http://zbxai_receiver:8000/v1/events` |
 

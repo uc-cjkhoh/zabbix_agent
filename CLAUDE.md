@@ -35,12 +35,13 @@ read-only MCP server, stores an analysis that Grafana shows beside the problem. 
 ## 5. Build, run, test, deploy
 Only the llama slice exists (code root `/unified/user/cj/ai_agent/zabbix_agent/`, on the workstation and copied to the testbed). On the testbed, from that root:
 `./scripts/fetch-model.sh` (one-time download), `docker compose --env-file .env --env-file deploy/versions.env -f deploy/compose.yaml up -d` (start; `down` stops it,
-the volume `zbxai_models` is removed separately), `./scripts/check-llama.sh` (egress, health, one chat). Safe-operation rules for the testbed: [docs/operations/testbed.md](docs/operations/testbed.md).
+the volumes `zbxai_models` and `zbxai_edge_conf` are removed separately), `./scripts/check-llama.sh` (egress, health, one chat), `./scripts/edge-init.sh` (API key and proxy config, run before the first `up`; `--rotate` for a new key),
+`./scripts/check-edge.sh <url> < <key file>` (proxy checks). Remote access: `http://<testbed>:18081` with the key in `deploy/secrets/llama-api-key` ([D15](docs/decisions/d15-llama-lan-access-through-authenticated-proxy.md)). Safe-operation rules for the testbed: [docs/operations/testbed.md](docs/operations/testbed.md).
 Never start, stop or reconfigure anything on the testbed without the user asking. Credentials live only in
 the git-ignored `docs/operations/credentials.local.md`.
 
 ## 6. Source layout
-Code root `/unified/user/cj/ai_agent/zabbix_agent/` (not a git repo yet): `deploy/` (compose.yaml, versions.env, models.sources, models.sha256), `scripts/` (fetch-model.sh, check-llama.sh). No Python source yet.
+Code root `/unified/user/cj/ai_agent/zabbix_agent/` (not a git repo yet): `deploy/` (compose.yaml, versions.env, models.sources, models.sha256, edge/default.conf.tmpl), `scripts/` (fetch-model.sh, check-llama.sh, edge-init.sh, check-edge.sh). No Python source yet.
 
 ## 7. Design rules
 No custom UI is built (Grafana is the monitoring UI, D11); UI/browser rules from agent-behavior are dropped.
@@ -54,7 +55,7 @@ The one copy of the tree.
 └── docs/
     ├── README.md
     ├── architecture/             # index.md, overview.md, design-plan.md, topology.md, topology-facts.md
-    ├── decisions/                # README.md (index + open questions), d1..d13
+    ├── decisions/                # README.md (index + open questions), d1..d15
     ├── operations/               # testbed.md, credentials.local.md (git-ignored)
     └── development/              # coding-standards, review-guidelines, implementation-plan/, backlog/, run-logs/
 ```

@@ -27,7 +27,8 @@ changes the host beyond this project's own containers.
 - **internal-network-egress** (high; trivial) - partly done: `zbxai_model` blocks egress (a public address and the LAN gateway both
   fail within 3 s, 2026-11-23). Open: the same check on `zbxai_app` ([D12](../../decisions/d12-operational-data-stays-in-network.md)). Needs: containers on `app`.
 - **selinux-and-ports** (high; small) - partly done: `llama-server` reads the model from a named volume under SELinux Enforcing,
-  as a non-root user with a read-only root filesystem (2026-11-23). Open: Zabbix and Grafana images with named volumes; whether Zabbix web and Grafana on 3000 reach the LAN through firewalld. Grafana is the only notification path,
+  as a non-root user with a read-only root filesystem (2026-11-23). A port published by a container on two networks (`zbxai_edge`, 18081) was
+reached from the workstation across the LAN with firewalld active (2026-11-23); this covers the mechanism, not Grafana's or Zabbix web's ports. Open: Zabbix and Grafana images with named volumes; whether Zabbix web and Grafana on 3000 reach the LAN through firewalld. Grafana is the only notification path,
   so this gates the project. Testable from the workstation on the same LAN once containers run; a privileged session or the
   user's help may be needed ([testbed](../../operations/testbed.md)).
 - **pg-datasource-readonly** (high; small) - open: Grafana's PostgreSQL data source with a SELECT-only role shows the

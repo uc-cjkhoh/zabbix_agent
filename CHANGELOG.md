@@ -3,6 +3,12 @@
 Generated from `git log` on `main` by `.claude/hooks/update-changelog.py` after each commit. Do not edit by hand.
 One table per date, times in UTC+8. Commits that only touch this file are not listed.
 
+## 2026-11-24
+
+| Time (UTC+8) | Change | Commits |
+|---|---|---|
+| 08:20 | docs: propose LLM settings, capabilities, prediction and topology for the Zabbix agent | `875736b` |
+
 ## 2026-11-23
 
 | Time (UTC+8) | Change | Commits |

@@ -38,13 +38,13 @@ been observed on the testbed plus the design reasoning. No container has run, so
 | # | Claim | Evidence | Status |
 |---|---|---|---|
 | 1 | The project's subnets clash with nothing on the host | Survey found only LAN 10.168.48.0/22, `docker0` 172.17.0.0/16 and ClickHouse 172.25.0.0/24 ([testbed](../operations/testbed.md)); 172.30.60.0/21 overlaps none | observed |
-| 2 | The ports are free | Only SSH :22 (plus chrony on localhost) listens; 13000 and 18080 are not in use | observed |
+| 2 | The ports are free | Only SSH :22 (plus chrony on localhost) listens; 13000 and 18080 are not in use; 18081 was free and is now published by `zbxai_edge` ([D15](../decisions/d15-llama-lan-access-through-authenticated-proxy.md)) | observed |
 | 3 | The host can run the stack | 8 vCPU, 15 GiB RAM, 40 GB free, Docker 29.9.2 and Compose v5.6.0 active, account in `docker` group; budget about 10 to 11 GB RAM | observed host, *estimate* budget |
-| 4 | The model can run without a GPU | Host has no GPU and has AVX2 and AVX512F (observed); CPU inference with `llama-server` and its speed are not yet seen | hardware observed; CPU inference designed, speed unverified (`model-benchmark`) |
+| 4 | The model can run without a GPU | Host has no GPU and has AVX2 and AVX512F (observed); CPU inference with the 3B model answers (one short prompt, about 64 tokens/s in and 14 out, 2026-11-23); the 8B and the real prompt size are not yet seen | hardware observed; 3B answers observed once; 8B and speed at the real prompt size unverified (`model-benchmark`) |
 | 5 | Images and model can be fetched at setup | `registry-1.docker.io`, `ghcr.io`, `huggingface.co` resolve; actual download not tested | observed DNS only |
 | 6 | Zabbix is a clean install | No package, unit or listener found on the testbed | observed |
 | 7 | The other project is untouched | `ch1` to `ch4` and `clickhouse-testing-env` are left alone; teardown removes only names starting `zbxai` | designed |
-| 8 | Operational data cannot leave the network | `app` and `model` are `internal: true`; only `front` (Grafana, Zabbix web) and the transient `setup` network, removed after the model download, have egress ([D12](../decisions/d12-operational-data-stays-in-network.md)) | designed; `internal-network-egress` open |
+| 8 | Operational data cannot leave the network | `app` and `model` are `internal: true`; only `front` (Grafana, Zabbix web, the llama proxy) and the transient `setup` network, removed after the model download, have egress ([D12](../decisions/d12-operational-data-stays-in-network.md)) | designed; `internal-network-egress` open |
 | 9 | Grafana cannot become a second alert engine or write | Its own read-only Zabbix token and a SELECT-only PostgreSQL role; no alert rules ([D8](../decisions/d8-grafana-only-notification.md), [D11](../decisions/d11-grafana-monitoring-ui.md)) | designed; `pg-datasource-readonly` open |
 | 10 | The model cannot change Zabbix | The MCP server is thin, read-only, and the only model path to Zabbix ([D7](../decisions/d7-thin-readonly-mcp-server.md)) | designed; `readonly-role-test` open |
 | 11 | Problems show even if the model is down | Grafana reads Zabbix directly; the analysis is added beside the problem later ([D6](../decisions/d6-detection-split.md)) | designed |

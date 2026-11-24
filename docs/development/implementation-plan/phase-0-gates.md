@@ -18,8 +18,8 @@ Global constraints and protocol: [index](/unified/user/cj/knowledge/ai_agent/zab
 - Produces: `/unified/user/cj/ai_agent/zabbix_agent/.env` (git-ignored, repo root; created from `/unified/user/cj/ai_agent/zabbix_agent/deploy/.env.example`) keys `ZBXAI_PREFIX`, `ZBXAI_FRONT_SUBNET`, `ZBXAI_APP_SUBNET`, `ZBXAI_MODEL_SUBNET`, `ZBXAI_TEST_SUBNET`,
   `ZBXAI_SETUP_SUBNET`, `ZBXAI_GRAFANA_BIND`, `ZBXAI_GRAFANA_PORT`, `ZBXAI_ZBXWEB_BIND`, `ZBXAI_ZBXWEB_PORT`, `ZBXAI_RECEIVER_URL`,
   `ZBXAI_USED_RANGES` (comma list from the survey: the LAN, `docker0`, the ClickHouse network, plus resolver and proxy ranges when
-  known). Also `LLAMA_CTX_SIZE` (4096) and `LLAMA_THREADS` (6), which `compose.yaml` reads; they exist in `.env` since the llama slice and
-  must stay in `.env.example` and in `check_env`'s key list, or Compose passes an empty `--ctx-size`. Values are in the [topology](/unified/user/cj/knowledge/ai_agent/zabbix_agent/docs/architecture/topology.md).
+  known). Also `LLAMA_CTX_SIZE` (32768), `LLAMA_THREADS` (6), `ZBXAI_EDGE_BIND` (0.0.0.0) and `ZBXAI_EDGE_PORT` (18081), which `compose.yaml` reads; they exist in `.env` since the llama slice and
+  must stay in `.env.example` and in `check_env`'s key list, or Compose passes an empty `--ctx-size` or fails on the edge port. `ZBXAI_FRONT_SUBNET` is already used by `zbxai_front`, created by the llama edge proxy ([D15](/unified/user/cj/knowledge/ai_agent/zabbix_agent/docs/decisions/d15-llama-lan-access-through-authenticated-proxy.md)); Task 1.1 must adopt that network, not recreate it. Values are in the [topology](/unified/user/cj/knowledge/ai_agent/zabbix_agent/docs/architecture/topology.md).
   `check_env(env: Mapping[str, str], live_subnets: Sequence[str] = ()) -> list[str]` returns problems; empty list means pass.
 
 - [ ] **Step 1: Write the failing tests** in `/unified/user/cj/ai_agent/zabbix_agent/tests/unit/test_envcheck.py`:
@@ -43,8 +43,8 @@ Global constraints and protocol: [index](/unified/user/cj/knowledge/ai_agent/zab
   and digest for each helper image a later task needs (`LLAMA_FULL_*` if `llama-bench` is not in the server image, Task 2.5), each with
   its image digest as `<NAME>_DIGEST` (the multi-architecture index digest; the testbed is linux/amd64). Compose and every `FROM` use
   `tag@digest` (contract R3).
-- **Ruling (2026-11-23, llama slice):** `deploy/versions.env` already exists with `LLAMA_TAG=server` and `LLAMA_DIGEST` (observed on the testbed). Add the other
-  pins to it; keep these two, do not rewrite the file. Cost if wrong: Compose loses the llama image and `fetch-model.sh` fails.
+- **Ruling (2026-11-23, llama slice):** `deploy/versions.env` already exists with `LLAMA_TAG=server`, `LLAMA_DIGEST`, `EDGE_TAG=stable-alpine` and `EDGE_DIGEST` (the nginx proxy; observed on the testbed). Add the other
+  pins to it; keep these four, do not rewrite the file. Cost if wrong: Compose loses the llama image and `fetch-model.sh` fails.
 
 - [ ] **Step 1: [TESTBED] Confirm the grant directory.** Check that the directory the owner named under `/unified/user/cj/` exists on the
   testbed, or can be created by the unprivileged account (no `sudo`). Expected: it exists and is writable. If not, stop and ask the owner.
