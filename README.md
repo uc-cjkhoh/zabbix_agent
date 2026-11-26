@@ -1,7 +1,7 @@
 # Zabbix Agent — Knowledge Base
 
 Docs-only knowledge base for a **local-host Zabbix AI agent** that analyses Zabbix trends and detects issues
-early, so they can be prevented. Status: **planning**. The design plan is approved and the implementation plan is written for review; nothing is built or installed yet.
+early, so they can be prevented. Status: **planning**. The design plan is approved and the implementation plan is written for review; only part is built: the llama slice, a Zabbix and MCP slice on the testbed, and Task 2.0 of the agent (settings); see [testbed](docs/operations/testbed.md).
 
 Owner: chiajun. Created: 2026-11-23. The owner's requirements are recorded in this KB; there is no separate source brief.
 
@@ -33,7 +33,9 @@ Llama (model, on llama.cpp), Zabbix (monitoring source), MCP (tool protocol), Gr
 - Not installed: the testbed was surveyed read-only ([testbed](docs/operations/testbed.md)); no part of the
   stack runs there yet, and anything marked *unverified* was not observed.
 - Not built: the design plan is approved, the [topology](docs/architecture/topology.md) is written, and the
-  [implementation plan](docs/development/implementation-plan/index.md) awaits review.
+  [implementation plan](docs/development/implementation-plan/index.md) awaits review. The agent's receiver, worker,
+  pipeline, clients and store exist as unit-tested code in the code root (2026-11-26), not deployed; the MCP server,
+  the webhook and the provisioning are not written.
 
 ## Rulebook
-Agent behaviour follows `/unified/user/cj/knowledge/agent-behavior/` (see [decision D5](docs/decisions/d5-kb-location-and-layout.md)).
+Agent behaviour follows `/unified/user/cj/general_kb/agent-behavior/` (see [decision D5](docs/decisions/d5-kb-location-and-layout.md)).

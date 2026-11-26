@@ -6,7 +6,7 @@ components: []
 
 # Architecture overview
 
-**Status: the [design plan](design-plan.md) is approved.** Nothing is installed. This file is the flow
+**Status: the [design plan](design-plan.md) is approved.** The agent's receiver, worker, pipeline, clients and store exist as tested code in the code root (unit tests with fakes; the store's SQL passed its tests once on a throwaway PostgreSQL) but none of it is deployed, so nothing of the agent runs; on the testbed llama, the edge proxy, Zabbix (server, web, PostgreSQL) and the official Zabbix MCP server run, and Grafana is paused ([topology status](topology.md), 2026-11-26). This file is the flow
 only; why each part exists, the alternatives and the failure behaviour are in the design plan. The networks, subnets, ports and
 containers are in the [topology](topology.md).
 
@@ -41,7 +41,7 @@ containers are in the [topology](topology.md).
  Zabbix also monitors the agent's, model's and Grafana's health and queue depth.
 ```
 
-## Components (all proposed or approved, none installed)
+## Components (all proposed or approved; running on the testbed: llama, edge, Zabbix and an interim MCP server; Grafana paused)
 | Component | Role | Source of the choice |
 |---|---|---|
 | Zabbix | Collects metrics, detects, raises problems | Owner; 8.0 LTS in [D10](../decisions/d10-zabbix-version-and-database.md) |

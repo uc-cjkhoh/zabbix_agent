@@ -9,8 +9,6 @@ components: []
 Each item gates part of the [design plan](../../architecture/design-plan.md). Testbed items need the user's go-ahead; none
 changes the host beyond this project's own containers.
 
-- **zabbix-image-tags** (high; trivial) - open: confirm 8.0 LTS release and official image tags on the registry; fall back
-  to 7.0 if absent ([D10](../../decisions/d10-zabbix-version-and-database.md)). Needs: nothing on the testbed.
 - **function-availability** (high; small) - open: minimum Zabbix version of `forecast`, `timeleft`, `baselinewma`,
   `baselinedev`, `trendstl`. Needs: the chosen version's docs, then a test trigger.
 - **readonly-role-test** (high; small) - open: show that a User-type role with only `*.get` allowed cannot write
@@ -24,13 +22,10 @@ changes the host beyond this project's own containers.
   `tool_choice` and `json_schema` work on `/v1`; if not, extra model-driven lookups stay off. Needs: the model running.
 - **receiver-reachability** (high; trivial) - open: a Zabbix webhook can post to the receiver's private Docker address (the
   docs show no restriction, which is not proof). Needs: running Zabbix and receiver.
-- **internal-network-egress** (high; trivial) - partly done: `zbxai_model` blocks egress (a public address and the LAN gateway both
-  fail within 3 s, 2026-11-23). Open: the same check on `zbxai_app` ([D12](../../decisions/d12-operational-data-stays-in-network.md)). Needs: containers on `app`.
+- **internal-network-egress** (high; trivial) - partly done: `zbxai_model` (2026-11-23) and `zbxai_app` (2026-11-24) both block egress (a public address and the LAN gateway are unreachable). Open: the same check from the running worker and MCP containers once they exist ([D12](../../decisions/d12-operational-data-stays-in-network.md)).
 - **selinux-and-ports** (high; small) - partly done: `llama-server` reads the model from a named volume under SELinux Enforcing,
   as a non-root user with a read-only root filesystem (2026-11-23). A port published by a container on two networks (`zbxai_edge`, 18081) was
-reached from the workstation across the LAN with firewalld active (2026-11-23); this covers the mechanism, not Grafana's or Zabbix web's ports. Open: Zabbix and Grafana images with named volumes; whether Zabbix web and Grafana on 3000 reach the LAN through firewalld. Grafana is the only notification path,
-  so this gates the project. Testable from the workstation on the same LAN once containers run; a privileged session or the
-  user's help may be needed ([testbed](../../operations/testbed.md)).
+reached from the workstation across the LAN with firewalld active (2026-11-23); this covers the mechanism, not Grafana's or Zabbix web's ports. Zabbix web (18080) and Grafana (13000), each on `front` and `app`, were reached from the workstation across the LAN with firewalld active, and the official Zabbix and Grafana images ran with named volumes (2026-11-24). Open: firewalld's rules and the other hosts' view are still unreadable here, so this tells us the mechanism works, not that the firewall is configured as the owner expects ([testbed](../../operations/testbed.md)).
 - **pg-datasource-readonly** (high; small) - open: Grafana's PostgreSQL data source with a SELECT-only role shows the
   analyses, cannot write, and cannot read other databases; dashboards and data sources provision from files
   ([D8](../../decisions/d8-grafana-only-notification.md)). Needs: running PostgreSQL and Grafana.
@@ -47,3 +42,6 @@ reached from the workstation across the LAN with firewalld active (2026-11-23); 
   2026-11-23). Open: pin the `full` image (tag and digest) in `deploy/versions.env` for the benchmark. Needs: the go-ahead to pull it.
 - **cold-reproduction** (high; medium) - open: from nothing but Docker, the repo and a filled `.env`, `deploy.sh up` reaches the Phase 1
   acceptance with no manual step, and a second `up` changes nothing; repeated on a second clean host. Needs: the testbed, later a second host.
+- **official-mcp-checks** (high; small) - open: for the interim official `zabbix-mcp-server` ([D17](../../decisions/d17-official-zabbix-mcp-server-as-interim.md)) with a read-only token: the names of the 4 exposed tools, an authenticated call works, a write call is refused by both the deny list and the Zabbix role, `limit`, `MaxResponseSize` and `Timeout` truncate as documented, and nothing but the Zabbix web address is called (egress is blocked on `app`, so a failure would show in its log). Needs: the read-only role and token (owner's sign-off, rule 6).
+- **zabbix-api-shapes** (high; small) - open: the request and response shapes of `zabbix_client.py` (`problem.get`, `event.get`, `trigger.get`, `history.get`, `trend.get`, `host.get`, `item.get`, Bearer header) follow the documentation and were tested only against mocks, never against the running Zabbix 8.0.0. Needs: the read-only token (Task 1.3) and one read-only run of the client against `zbxai_zabbix_web`.
+- **pipeline-real-model** (high; small) - open: how often the 3B model returns valid JSON whose evidence ids all exist in the context is unknown; `pipeline.py` was tested only with fake answers. Needs: llama running and a handful of real events.

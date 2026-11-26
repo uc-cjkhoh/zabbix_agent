@@ -9,7 +9,7 @@ components: [tools/bench/llm_probe.py, deploy/compose.yaml]
 Backs the settings in [llm-agent-proposal.md](llm-agent-proposal.md). **Status: the probe has not run against the real model.** A dry run against a local mock server passed (16 requests, report written, mock stopped).
 
 ## The probe
-Script: `/unified/user/cj/ai_agent/zabbix_agent/tools/bench/llm_probe.py` (workstation copy; the testbed copy comes from the `scp` step below). Standard library only.
+Script: `/unified/user/cj/ai_agent/zabbix_agent/codebase/tools/bench/llm_probe.py` (workstation copy; the testbed copy comes from the `scp` step below). Standard library only.
 
 - Read-only: `GET /props` and `POST /v1/chat/completions`. Changes nothing on the server.
 - Synthetic prompts only, no operational data. At most 20 requests (`--max-requests`), `max_tokens` capped at 400, no prompt near 32k, a hard timeout per request.
@@ -29,7 +29,7 @@ The workstation and the testbed share no filesystem, and the owner already has S
 ```
 # 1. from the workstation: copy the script
 ssh unified@10.168.50.40 'mkdir -p /unified/user/cj/ai_agent/zabbix_agent/tools/bench'
-scp /unified/user/cj/ai_agent/zabbix_agent/tools/bench/llm_probe.py \
+scp /unified/user/cj/ai_agent/zabbix_agent/codebase/tools/bench/llm_probe.py \
     unified@10.168.50.40:/unified/user/cj/ai_agent/zabbix_agent/tools/bench/
 
 # 2. on the testbed: run it (about 10 to 20 minutes; blocks B and C take about a minute per request)

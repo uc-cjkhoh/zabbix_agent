@@ -1,12 +1,12 @@
 ---
 title: Decision log
-description: Lookup of decision records D1..D15 and the open questions that need the owner
+description: Lookup of decision records D1..D17 and the open questions that need the owner
 components: []
 ---
 
 # Decisions
 
-All of D1 to D15 are decided: the owner made D1 to D5, D8 to D15 and read-only v1 directly; D6, D7's thin server and the mechanisms inside D8 and D11 were the agent's proposals, accepted with the approved [design plan](../architecture/design-plan.md). Verification items can still overturn one.
+All of D1 to D17 are decided: the owner made D1 to D5, D8 to D17 and read-only v1 directly; D6, D7's thin server and the mechanisms inside D8 and D11 were the agent's proposals, accepted with the approved [design plan](../architecture/design-plan.md). Verification items can still overturn one.
 
 | ID | Decision | File |
 |---|---|---|
@@ -25,6 +25,8 @@ All of D1 to D15 are decided: the owner made D1 to D5, D8 to D15 and read-only v
 | D13 | The testbed is a rehearsal; the 50+ modules are a sizing reference (owner decision) | [d13-rehearsal-testbed-and-sizing-reference.md](d13-rehearsal-testbed-and-sizing-reference.md) |
 | D14 | `CHANGELOG.md` is the generated change log, times in UTC+8, rebuilt by a hook (owner decision) | [d14-changelog-generated-in-root.md](d14-changelog-generated-in-root.md) |
 | D15 | Llama is reachable from the LAN on 0.0.0.0:18081 only through an nginx proxy that requires an API key (owner decision) | [d15-llama-lan-access-through-authenticated-proxy.md](d15-llama-lan-access-through-authenticated-proxy.md) |
+| D16 | Zabbix web (18080) and Grafana (13000) are published on 0.0.0.0 with one shared development login, also used by the llama web UI (owner decision) | [d16-zabbix-web-and-grafana-on-lan-with-shared-login.md](d16-zabbix-web-and-grafana-on-lan-with-shared-login.md) |
+| D17 | The official `zabbix-mcp-server` runs first as an interim step; D7's thin custom server stays the target (owner decision) | [d17-official-zabbix-mcp-server-as-interim.md](d17-official-zabbix-mcp-server-as-interim.md) |
 
 ## Open questions (the owner's to decide; nothing is assumed)
 | # | Question | Blocks |

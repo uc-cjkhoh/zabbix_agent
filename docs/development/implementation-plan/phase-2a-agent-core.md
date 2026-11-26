@@ -6,14 +6,16 @@ components: []
 
 # Phase 2a — Agent core (tested library; no model needed yet)
 
-Global constraints and protocol: [index](/unified/user/cj/knowledge/ai_agent/zabbix_agent/docs/development/implementation-plan/index.md). All tests run through `/unified/user/cj/ai_agent/zabbix_agent/scripts/ship-test.sh` **[TESTBED]**. Each task
+Global constraints and protocol: [index](/unified/user/cj/ai_agent/zabbix_agent/kb/docs/development/implementation-plan/index.md). All tests run through `/unified/user/cj/ai_agent/zabbix_agent/codebase/scripts/ship-test.sh` **[TESTBED]**. Each task
 ends with a commit step (ask first, Q7).
 
 ### Task 2.0: Scaffold and settings
 
+**Status 2026-11-26: done** (14 unit tests pass in a container, `ruff check` clean; not committed, the codebase is not a git repo). Choices made: field mapping is the lowercase env key with `_FILE` dropped for secrets (`ZBX_TOKEN_FILE` gives `zbx_token`); required keys are `ZBX_URL`, `ZBX_TOKEN_FILE`, `PG_DSN_FILE`, `LLAMA_URL`, `RECEIVER_TOKEN_FILE`; `LLM_TIMEOUT_S` defaults to 300 s (the agent's own choice: a 12.5k-token prompt took 283 s on the 3B model, the real prompt is about 1.5k tokens; revisit after the benchmark); URLs must start with `http://` or `https://`; no `pydantic-settings`, a frozen pydantic model with `hide_input_in_errors`; errors name variables only. The `runtime` target copies `src/` and sets `PYTHONPATH=/app/src:/app` (image `zbxai_runtime:dev`, imports offline as uid 10001). **Open:** step 3's "confirm the `mcp` SDK's current server API against its docs before Task 2.4": only the names were checked (`mcp.server.fastmcp.FastMCP` and `mcp.client.streamable_http.streamablehttp_client` import in `mcp` 1.30.0, offline); the SDK's documentation was not read. Do it at the start of Task 2.4.
+
 **Files:**
-- Create: `/unified/user/cj/ai_agent/zabbix_agent/src/zbxai/__init__.py`; extend `/unified/user/cj/ai_agent/zabbix_agent/pyproject.toml` with the agent's dependencies, copy `/unified/user/cj/ai_agent/zabbix_agent/src/` into the `runtime` target of `/unified/user/cj/ai_agent/zabbix_agent/Dockerfile` (created in Task 1.1) and regenerate `/unified/user/cj/ai_agent/zabbix_agent/requirements.lock` in a container, `/unified/user/cj/ai_agent/zabbix_agent/src/zbxai/config.py`
-- Test: `/unified/user/cj/ai_agent/zabbix_agent/tests/unit/test_config.py`
+- Create: `/unified/user/cj/ai_agent/zabbix_agent/codebase/src/zbxai/__init__.py`; extend `/unified/user/cj/ai_agent/zabbix_agent/codebase/pyproject.toml` with the agent's dependencies, copy `/unified/user/cj/ai_agent/zabbix_agent/codebase/src/` into the `runtime` target of `/unified/user/cj/ai_agent/zabbix_agent/codebase/Dockerfile` (created in Task 1.1) and regenerate `/unified/user/cj/ai_agent/zabbix_agent/codebase/requirements.lock` in a container, `/unified/user/cj/ai_agent/zabbix_agent/codebase/src/zbxai/config.py`
+- Test: `/unified/user/cj/ai_agent/zabbix_agent/codebase/tests/unit/test_config.py`
 
 **Interfaces:**
 - Produces: `Settings` (frozen pydantic model; secrets are `SecretStr`); `load_settings(env: Mapping[str, str]) -> Settings`.
@@ -24,15 +26,17 @@ ends with a commit step (ask first, Q7).
 - [ ] **Step 1: Write failing tests:** `test_settings_reads_secret_from_file`, `test_settings_repr_hides_secrets` (neither `repr` nor
   `str` contains the secret), `test_missing_required_setting_names_key_only` (the error names the variable, never a value),
   `test_model_lookups_default_off`.
-- [ ] **Step 2: Run, expecting FAIL. Step 3: Implement.** The `runtime` target (a minimal one exists from Task 1.1) of `/unified/user/cj/ai_agent/zabbix_agent/Dockerfile` is `python:3.12-slim` taken from `PYTHON_TAG@PYTHON_DIGEST` through a build ARG, dependencies installed from `/unified/user/cj/ai_agent/zabbix_agent/requirements.lock` with `--require-hashes`, a non-root
+- [ ] **Step 2: Run, expecting FAIL. Step 3: Implement.** The `runtime` target (a minimal one exists from Task 1.1) of `/unified/user/cj/ai_agent/zabbix_agent/codebase/Dockerfile` is `python:3.12-slim` taken from `PYTHON_TAG@PYTHON_DIGEST` through a build ARG, dependencies installed from `/unified/user/cj/ai_agent/zabbix_agent/codebase/requirements.lock` with `--require-hashes`, a non-root
   user, no build tools in the final image, `TZ=UTC`, and no `CMD` (each service sets its own command, contract R10). Confirm the `mcp` SDK's current server API against its docs before Task 2.4.
 - [ ] **Step 4: Run, expecting PASS.**
 
 ### Task 2.1: Domain models and event validation
 
+**Status 2026-11-26: done** (code `src/zbxai/models.py`, tests `tests/unit/test_models.py`, pass in a container). Choices made: models are frozen and strict (`extra="forbid"`); a rejection reason lists field names only; the size check runs on the raw bytes before parsing (a dict is serialised first); `DependencyError` (the base of every "a dependency is down" error) lives here; field lengths are bounded (ids 64, host name 512, trigger name 2048, 64 tags).
+
 **Files:**
-- Create: `/unified/user/cj/ai_agent/zabbix_agent/src/zbxai/models.py`
-- Test: `/unified/user/cj/ai_agent/zabbix_agent/tests/unit/test_models.py`
+- Create: `/unified/user/cj/ai_agent/zabbix_agent/codebase/src/zbxai/models.py`
+- Test: `/unified/user/cj/ai_agent/zabbix_agent/codebase/tests/unit/test_models.py`
 
 **Interfaces:**
 - Produces: `ProblemEvent(event_id: str, trigger_id: str, host_id: str, host_name: str, trigger_name: str, severity: int, clock: int,
@@ -49,9 +53,11 @@ ends with a commit step (ask first, Q7).
 
 ### Task 2.2: Analysis store
 
+**Status 2026-11-26: done, run once on a throwaway PostgreSQL.** Code `src/zbxai/store.py` (with a `Store` protocol), `deploy/postgres/migrations/001_init.sql`, `tests/integration/test_store.py`. `scripts/test-store.sh` creates the internal network `zbxai_test` (172.30.63.0/24, checked against the live subnets) and the container `zbxai_pgtest` (the pinned `postgres:16-alpine`, data on tmpfs, no published port, trust auth because only the test container can reach it), runs `tests/integration` through `ship-test.sh` (which now accepts `ZBXAI_TEST_NETWORK` and `ZBXAI_TEST_PG_DSN`), then removes both; it refuses to run if either name exists. **Result: 10 passed on the first run** (8 planned tests plus the group limit and the statement time limit), none skipped, nothing left behind on the testbed. A second file, `tests/integration/test_store_concurrency.py` (4 tests: one identical event from 16 threads is accepted once; the cap holds exactly under concurrent enqueues; 6 competing claimers get every event exactly once; enqueue and claim at the same time lose nothing), also passes. A mutation check showed the tests can fail: with the enqueue advisory lock removed, `test_identical_event_from_many_threads_is_accepted_once` failed (the cap test did not fail in that one run; it is timing-dependent). Not yet shown: the grants of the SELECT-only role (Task 1.2). Choices made: one connection per call; enqueue runs under one advisory lock; an event groups only under a parent that is still `queued` (once the parent is claimed, a later event on that host is accepted on its own); grouped events do not count towards the cap; the view's `created_at` is the problem's `clock` (the test name `test_timestamps_are_utc` needs that), the analysis time is `analyses.analysed_at`; no grants are made (the SELECT-only role is Task 1.2); `group_members` takes a limit (default 20, rule 8) and every connection sets `statement_timeout` 10 s and `lock_timeout` 5 s. Unit tests use `tests/unit/memory_store.py`, a stand-in that follows the same contract.
+
 **Files:**
-- Create: `/unified/user/cj/ai_agent/zabbix_agent/src/zbxai/store.py`, `/unified/user/cj/ai_agent/zabbix_agent/deploy/postgres/migrations/001_init.sql`
-- Test: `/unified/user/cj/ai_agent/zabbix_agent/tests/integration/test_store.py`
+- Create: `/unified/user/cj/ai_agent/zabbix_agent/codebase/src/zbxai/store.py`, `/unified/user/cj/ai_agent/zabbix_agent/codebase/deploy/postgres/migrations/001_init.sql`
+- Test: `/unified/user/cj/ai_agent/zabbix_agent/codebase/tests/integration/test_store.py`
 
 **Interfaces:**
 - Consumes: `ProblemEvent`, `Analysis`, `NoAnalysis`, `dedupe_key` (Task 2.1).
@@ -72,9 +78,11 @@ ends with a commit step (ask first, Q7).
 
 ### Task 2.3: Bounded, read-only Zabbix client
 
+**Status 2026-11-26: done against mocks** (code `src/zbxai/zabbix_client.py`, tests pass with `httpx.MockTransport`). The request and response shapes follow the Zabbix API documentation and have **not** been seen against the running Zabbix 8.0.0: *unverified*; no read-only token exists yet (Task 1.3 is not built). Choices made: `base_url` is the full endpoint (as in `ZBX_URL`); `event()` makes two calls (`event.get`, then `trigger.get` with `selectItems`) so that `EventDetail.items` carries the item ids that `series()` needs; `series("history")` first reads the item's `value_type`; ids must be digits only; `ping()` (one `host.get`, limit 1) serves the health check; `ZabbixBadResponse` is a subclass of `ZabbixUnavailable`.
+
 **Files:**
-- Create: `/unified/user/cj/ai_agent/zabbix_agent/src/zbxai/zabbix_client.py`
-- Test: `/unified/user/cj/ai_agent/zabbix_agent/tests/unit/test_zabbix_client.py`
+- Create: `/unified/user/cj/ai_agent/zabbix_agent/codebase/src/zbxai/zabbix_client.py`
+- Test: `/unified/user/cj/ai_agent/zabbix_agent/codebase/tests/unit/test_zabbix_client.py`
 
 **Interfaces:**
 - Produces: `ZabbixClient(base_url: str, token: SecretStr, *, max_rows: int = 200, max_window_s: int = 604800, http: httpx.Client | None = None)`;
@@ -94,8 +102,8 @@ ends with a commit step (ask first, Q7).
 ### Task 2.4: MCP server with six read-only tools
 
 **Files:**
-- Create: `/unified/user/cj/ai_agent/zabbix_agent/src/zbxai/mcp_server.py`
-- Test: `/unified/user/cj/ai_agent/zabbix_agent/tests/unit/test_mcp_server.py`
+- Create: `/unified/user/cj/ai_agent/zabbix_agent/codebase/src/zbxai/mcp_server.py`
+- Test: `/unified/user/cj/ai_agent/zabbix_agent/codebase/tests/unit/test_mcp_server.py`
 
 **Interfaces:**
 - Consumes: `ZabbixClient` (Task 2.3).

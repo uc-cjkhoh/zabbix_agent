@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Zabbix agent topology: built and target</title>
+  <link rel="stylesheet" href="topology.css">
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Zabbix agent topology</h1>
+      <p><span id="host"></span> · data as of <span id="asof"></span></p>
+    </header>
+
+    <div class="toolbar">
+      <div id="summary"></div>
+      <label><input type="checkbox" id="show-all"> Show all flows</label>
+      <div class="legend" aria-label="Legend">
+        <span><span class="sw"></span>flow built</span>
+        <span><span class="sw dashed"></span>flow not built</span>
+        <span>Solid card: built · dashed card: not built · <em>observed</em>: seen on the real host, dated</span>
+      </div>
+    </div>
+
+    <main id="grid" class="grid">
+      <svg id="lines" aria-hidden="true" focusable="false"></svg>
+    </main>
+
+    <div class="note">
+      <p><strong>Left panel:</strong> read from <code>codebase/deploy/compose.yaml</code> and the status line of <code>docs/architecture/topology.md</code>. It was not re-checked on the live testbed, so <em>built</em> means present in compose or a script, not proven to work (rule 14). Only items badged <em>observed</em> carry a dated observation.</p>
+      <p><strong>Right panel:</strong> the target in <code>topology.md</code> sections 3 to 5. Nothing on it that is not built has run. RAM figures are estimates unless marked observed.</p>
+      <p>Edit <code>topology-data.js</code> in the same change as <code>topology.md</code> (rule 15). Open this page straight from disk or any static server; it makes no network request.</p>
+    </div>
+  </div>
+  <aside id="sheet" hidden aria-live="polite">
+    <button type="button" id="sheet-close">Close</button>
+    <div id="sheet-body"></div>
+  </aside>
+  <script src="topology-data.js"></script>
+  <script src="topology.js"></script>
+</body>
+</html>

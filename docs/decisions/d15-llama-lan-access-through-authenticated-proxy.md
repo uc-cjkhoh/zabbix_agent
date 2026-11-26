@@ -9,7 +9,7 @@ components: []
 **Status:** owner decision (2026-11-23): the owner asked to reach the model remotely and chose "proxy with API key" and port 18081.
 
 **Decision:** `zbxai_edge` (an unprivileged nginx) publishes `0.0.0.0:18081` and forwards to `zbxai_llama`. Every path except `/health`
-needs the API key, as `Authorization: Bearer <key>` or as basic auth (user `llama`, password the key) so a browser can open the web UI.
+needs the API key as `Authorization: Bearer <key>`, or the shared web login as basic auth ([D16](d16-zabbix-web-and-grafana-on-lan-with-shared-login.md), from 2026-11-24; before that the basic login was user `llama` with the key as password) so a browser can open the web UI.
 `zbxai_llama` stays on the internal `zbxai_model` network only; the proxy is on `zbxai_front` and `zbxai_model`.
 
 **Why not publish llama directly:** Docker cannot publish a port on an `internal: true` network, so llama would have to join a
@@ -27,6 +27,7 @@ authentication of its own unless `--api-key` is set, and allows all origins.
 - **CORS:** `llama-server` echoes any `Origin` but sends no `Access-Control-Allow-Credentials`, so a page on another site cannot read authenticated replies (checked 2026-11-23).
 - **Not yet verified in a real browser:** the checks use `curl` only. They confirm the basic-auth challenge on 401, `/` returns HTML, and a streamed chat with basic
   auth returns `data:` events; the browser prompt and the UI itself have not been opened by us.
+- 2026-11-24: `scripts/edge-init.sh` now builds the basic-auth entry from the git-ignored `deploy/secrets/web-credential`. `scripts/check-edge.sh <url> <credential file> < <key file>` passes: web login 200, old `llama:<key>` 401, bearer key 200, streamed chat with the web login.
 - Phase 1 later adds Grafana and Zabbix web to the same `zbxai_front` network; it already exists with the same name and subnet.
 
 **Verified (2026-11-23):** from the workstation across the LAN: `/health` open (200); no key and a wrong key give 401; the key gives 200 on the API and the web UI;

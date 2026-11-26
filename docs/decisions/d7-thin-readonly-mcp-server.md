@@ -21,4 +21,6 @@ Zabbix version.
 **Unverified:** that a User-type role with a `*.get` allow-list blocks all writes (the subagent's suggestion,
 not documented behaviour). Tracked in the [verification backlog](../development/backlog/design-verification.md).
 
+**Interim (2026-11-26):** the official server was installed first at the owner's request, see [D17](d17-official-zabbix-mcp-server-as-interim.md); this decision is not replaced.
+
 **Revisit:** if the tool set grows past a handful, or the official server gains a read-only mode.

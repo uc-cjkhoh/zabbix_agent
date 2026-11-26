@@ -6,14 +6,14 @@ components: []
 
 # Phase 2b — Agent service (the analysis reaches Grafana)
 
-Global constraints and protocol: [index](/unified/user/cj/knowledge/ai_agent/zabbix_agent/docs/development/implementation-plan/index.md). Needs Phase 2a, Task 0.3 (model files) and Task 1.4 (Grafana).
+Global constraints and protocol: [index](/unified/user/cj/ai_agent/zabbix_agent/kb/docs/development/implementation-plan/index.md). Needs Phase 2a, Task 0.3 (model files) and Task 1.4 (Grafana).
 Each task ends with a commit step (ask first, Q7).
 
 ### Task 2.5: `llama-server` runtime, egress check, benchmark, server probes
 
 **Files:**
-- Create: add service `llama` to `/unified/user/cj/ai_agent/zabbix_agent/deploy/compose.yaml` (healthcheck on `/health`; `restart: unless-stopped`); add to `/unified/user/cj/ai_agent/zabbix_agent/deploy/versions.env` a pinned `llama-bench` image if the server image lacks the tool; `/unified/user/cj/ai_agent/zabbix_agent/tools/bench/{estimate.py,run_bench.sh,probe_server.py}`; `/unified/user/cj/knowledge/ai_agent/zabbix_agent/docs/operations/benchmarks.md` (KB)
-- Test: `/unified/user/cj/ai_agent/zabbix_agent/tests/unit/test_estimate.py`
+- Create: add service `llama` to `/unified/user/cj/ai_agent/zabbix_agent/codebase/deploy/compose.yaml` (healthcheck on `/health`; `restart: unless-stopped`); add to `/unified/user/cj/ai_agent/zabbix_agent/codebase/deploy/versions.env` a pinned `llama-bench` image if the server image lacks the tool; `/unified/user/cj/ai_agent/zabbix_agent/codebase/tools/bench/{estimate.py,run_bench.sh,probe_server.py}`; `/unified/user/cj/ai_agent/zabbix_agent/kb/docs/operations/benchmarks.md` (KB)
+- Test: `/unified/user/cj/ai_agent/zabbix_agent/codebase/tests/unit/test_estimate.py`
 
 **Interfaces:**
 - Produces: service `llama` from `ghcr.io/ggml-org/llama.cpp:server` at the pinned digest, only on `${ZBXAI_PREFIX}_model`, command
@@ -27,18 +27,20 @@ Each task ends with a commit step (ask first, Q7).
   `${ZBXAI_PREFIX}_model` and `${ZBXAI_PREFIX}_app`, an outbound request to a public address and to the LAN gateway both fail within 3 s. Expected: failure.
   Delete the backlog entry on pass; if egress succeeds, stop and report. Also confirm `llama` reads the model from its named volume under
   SELinux Enforcing (part of verification item `selinux-and-ports`; delete that entry now if Task 1.4 step 6 passed).
-- [ ] **Step 6: [TESTBED] Benchmark (verification items `model-benchmark` and `llama-bench-image`):** first check whether the pinned `server` image contains `llama-bench` (*unverified*; it may ship only `llama-server`); if not, `/unified/user/cj/ai_agent/zabbix_agent/tools/bench/run_bench.sh` uses the pinned `full` image from `/unified/user/cj/ai_agent/zabbix_agent/deploy/versions.env`, on the model network with the same volume read-only. `/unified/user/cj/ai_agent/zabbix_agent/tools/bench/run_bench.sh` runs `llama-bench` for 8B and 3B at the
-  real prompt size, at 6 and 8 threads (6 leaves Zabbix and PostgreSQL CPU headroom); save the JSON; record prompt-processing and generation rates in `/unified/user/cj/knowledge/ai_agent/zabbix_agent/docs/operations/benchmarks.md`. Choose 8B when
+- [ ] **Step 6: [TESTBED] Benchmark (verification items `model-benchmark` and `llama-bench-image`):** first check whether the pinned `server` image contains `llama-bench` (*unverified*; it may ship only `llama-server`); if not, `/unified/user/cj/ai_agent/zabbix_agent/codebase/tools/bench/run_bench.sh` uses the pinned `full` image from `/unified/user/cj/ai_agent/zabbix_agent/codebase/deploy/versions.env`, on the model network with the same volume read-only. `/unified/user/cj/ai_agent/zabbix_agent/codebase/tools/bench/run_bench.sh` runs `llama-bench` for 8B and 3B at the
+  real prompt size, at 6 and 8 threads (6 leaves Zabbix and PostgreSQL CPU headroom); save the JSON; record prompt-processing and generation rates in `/unified/user/cj/ai_agent/zabbix_agent/kb/docs/operations/benchmarks.md`. Choose 8B when
   `estimate_latency(pp, tg) <= 120.0`, else 3B, and set the p95 analysis target from the result. Delete the backlog entry.
-- [ ] **Step 7: [TESTBED] Server probes (verification item `llama-server-checks`):** `/unified/user/cj/ai_agent/zabbix_agent/tools/bench/probe_server.py` sends ten fixed prompts with the
+- [ ] **Step 7: [TESTBED] Server probes (verification item `llama-server-checks`):** `/unified/user/cj/ai_agent/zabbix_agent/codebase/tools/bench/probe_server.py` sends ten fixed prompts with the
   `tools` field, with and without `--jinja`, plus `tool_choice` and `response_format` json_schema requests. Record what works. Keep
   `ENABLE_MODEL_LOOKUPS` off unless at least 9 of 10 tool calls are valid. Delete the backlog entry.
 
 ### Task 2.6: LLM client
 
+**Status 2026-11-26: done against mocks** (code `src/zbxai/llm.py`, tests pass). Never run against the real llama-server. The model name sent is `local`, temperature 0.2 (llama-server ignores the name). A 4xx answer is `LlmBadResponse`, not retried.
+
 **Files:**
-- Create: `/unified/user/cj/ai_agent/zabbix_agent/src/zbxai/llm.py`
-- Test: `/unified/user/cj/ai_agent/zabbix_agent/tests/unit/test_llm.py`
+- Create: `/unified/user/cj/ai_agent/zabbix_agent/codebase/src/zbxai/llm.py`
+- Test: `/unified/user/cj/ai_agent/zabbix_agent/codebase/tests/unit/test_llm.py`
 
 **Interfaces:**
 - Produces: `Message(role: Literal["system","user","assistant"], content: str)`; `LlamaClient(base_url: str, *, timeout_s: float,
@@ -51,9 +53,11 @@ Each task ends with a commit step (ask first, Q7).
 
 ### Task 2.7: Analysis pipeline
 
+**Status 2026-11-26: done against fakes** (code `src/zbxai/pipeline.py`, tests pass); never run with the real model, so how often the 3B model produces valid JSON with valid evidence is *unknown*. Choices made: evidence ids are `event:`, `trigger:`, `host:`, `item:` and `problem:` plus the id, and the data block lists them for the model to copy; a hypothesis citing any id that is not in the context is dropped whole; incomplete context (a Zabbix read failed) caps the confidence at `low` in code; `Context.similar` is always empty (the store has no producer for it); `model_lookups=True` raises `NotImplementedError` (it needs the MCP server, Task 2.4, not built); a dead llama-server raises `LlmUnavailable` for the worker to back off on; at most 20 grouped events and 10 hypotheses are used, and a cut is flagged in the data block (`grouped_events_truncated`); a hypothesis rank that is missing or odd (a string, 1.0, out of range) falls back to its position in the list.
+
 **Files:**
-- Create: `/unified/user/cj/ai_agent/zabbix_agent/src/zbxai/pipeline.py`
-- Test: `/unified/user/cj/ai_agent/zabbix_agent/tests/unit/test_pipeline.py`
+- Create: `/unified/user/cj/ai_agent/zabbix_agent/codebase/src/zbxai/pipeline.py`
+- Test: `/unified/user/cj/ai_agent/zabbix_agent/codebase/tests/unit/test_pipeline.py`
 
 **Interfaces:**
 - Consumes: `ProblemEvent`, `Analysis`, `NoAnalysis` (2.1); `AnalysisStore` (2.2); `ZabbixClient` (2.3); `LlamaClient`, `Message` (2.6).
@@ -72,10 +76,12 @@ Each task ends with a commit step (ask first, Q7).
 
 ### Task 2.8: Receiver, worker and the Zabbix webhook
 
+**Status 2026-11-26: receiver and worker code done against fakes; steps 5 and 6 and the webhook NOT done.** Built: `src/zbxai/receiver.py`, `worker.py`, `health.py` with unit tests (`test_receiver.py`, `test_worker.py`, `test_health.py`). Not built: `deploy/zabbix/media/zbxai_webhook.js`, the `zbx_provision` additions (the tool does not exist, Task 1.3), the `receiver`, `worker` and `mcp` services in `compose.yaml` (left untouched on purpose: the `${KEY:?}` style and missing secrets would break the `up` that works today), `test_receiver_live.py`, and any deployment. So `receiver-reachability` stays open. **Chain test run 2026-11-26 in isolation** (`tests/e2e/test_chain_isolated.py`, 10 tests, `scripts/test-store.sh`): the real receiver (uvicorn, real HTTP), PostgreSQL store, worker, pipeline and both clients against a FAKE Zabbix API and a FAKE llama-server inside the test container. Shown: webhook to a row in `v_ai_analyses`; 50 flapping events give one analysis and one model call; a burst on one host gives one analysis with all four events in the prompt; llama failing four times is retried and then analysed (5 requests); llama never answering ends in a note and the lane moves on; Zabbix down gives an analysis with confidence capped at `low`; malformed model output gives a note after one retry; an injection string stays inside the data block and only `.get` methods reach Zabbix; 401, 422 and 413 over real HTTP; `/healthz` stays 200 when Zabbix is down; the cap returns 503 and counts drops. Not shown: anything with the real llama-server or real Zabbix (`zabbix-api-shapes` and `pipeline-real-model` stay open). Choices made: backoff is `stop.wait(delay)` with the schedule 2, 5, 15, 30, 60 s and 5 attempts, then a "no analysis" note; a worker stopped mid-event leaves it `running` until `expire_older_than(3600)` gives it a note (nothing re-queues it); the worker touches `/tmp/zbxai-worker-alive` each loop for a file-based healthcheck; the worker refuses to start with `ENABLE_MODEL_LOOKUPS` set. **For the next tasks:** (1) models are strict, so the webhook JavaScript must send `severity` and `clock` as JSON numbers; Zabbix macros expand to strings and a naive script gets 422 on every event. (2) The heartbeat file is touched between events only, and one event can take 25 minutes or more (5 attempts, a 300 s model timeout, the backoff), so any file-age healthcheck threshold must be longer than that or the worker is restarted mid-analysis. (3) Grouping onto a parent only while it is still queued means that on an idle queue a burst usually gives about 2 analyses, not 1, because the worker claims the first event within 2 s; the owner can judge whether that is acceptable. (4) The receiver's health probe uses its own Zabbix client with a 3 s timeout.
+
 **Files:**
-- Create: `/unified/user/cj/ai_agent/zabbix_agent/src/zbxai/receiver.py`, `/unified/user/cj/ai_agent/zabbix_agent/src/zbxai/worker.py`, `/unified/user/cj/ai_agent/zabbix_agent/deploy/zabbix/media/zbxai_webhook.js`; extend `/unified/user/cj/ai_agent/zabbix_agent/tools/zbx_provision/spec.py`
+- Create: `/unified/user/cj/ai_agent/zabbix_agent/codebase/src/zbxai/receiver.py`, `/unified/user/cj/ai_agent/zabbix_agent/codebase/src/zbxai/worker.py`, `/unified/user/cj/ai_agent/zabbix_agent/codebase/deploy/zabbix/media/zbxai_webhook.js`; extend `/unified/user/cj/ai_agent/zabbix_agent/codebase/tools/zbx_provision/spec.py`
   with `build_webhook_media(cfg) -> MediaTypeSpec` and `build_action(cfg) -> ActionSpec`; add services `receiver` (`python -m zbxai.receiver`, uvicorn), `worker` (`python -m zbxai.worker`) and `mcp` (`python -m zbxai.mcp_server`, streamable HTTP on 8001) to compose, each from the `runtime` image with a healthcheck, its own secret sub-directory and `restart: unless-stopped`; `receiver`, `worker` and `mcp` each have a `__main__` that reads `Settings` and starts
-- Test: `/unified/user/cj/ai_agent/zabbix_agent/tests/unit/test_receiver.py`, `/unified/user/cj/ai_agent/zabbix_agent/tests/unit/test_worker.py`, `/unified/user/cj/ai_agent/zabbix_agent/tests/integration/test_receiver_live.py`
+- Test: `/unified/user/cj/ai_agent/zabbix_agent/codebase/tests/unit/test_receiver.py`, `/unified/user/cj/ai_agent/zabbix_agent/codebase/tests/unit/test_worker.py`, `/unified/user/cj/ai_agent/zabbix_agent/codebase/tests/integration/test_receiver_live.py`
 
 **Interfaces:**
 - Produces: `build_app(store, settings, health: Callable[[], dict]) -> Starlette`. `POST /v1/events`: 202 accepted or grouped, 200 duplicate,
@@ -90,17 +96,17 @@ Each task ends with a commit step (ask first, Q7).
   (uses `hmac.compare_digest`), `test_errors_and_healthz_never_contain_secrets`, `test_worker_backs_off_on_dependency_error`,
   `test_worker_never_runs_two_events_at_once`.
 - [ ] **Step 2: Run, expecting FAIL. Step 3: Implement. Step 4: Run, expecting PASS.**
-- [ ] **Step 5: [TESTBED] Deploy** `receiver`, `worker`, `llama`, the MCP server with `/unified/user/cj/ai_agent/zabbix_agent/scripts/deploy.sh up` (the `provision` one-shot applies the new media type and action; the webhook script is part of the spec sent through the API, not a mounted file).
+- [ ] **Step 5: [TESTBED] Deploy** `receiver`, `worker`, `llama`, the MCP server with `/unified/user/cj/ai_agent/zabbix_agent/codebase/scripts/deploy.sh up` (the `provision` one-shot applies the new media type and action; the webhook script is part of the spec sent through the API, not a mounted file).
 - [ ] **Step 6: [TESTBED] Reachability (verification item `receiver-reachability`):** run Zabbix's `mediatype.test` against the media type
   with a sample event. Expected: the receiver answers 202 and a row is queued, and
-  `/unified/user/cj/ai_agent/zabbix_agent/scripts/ship-test.sh --live /unified/user/cj/ai_agent/zabbix_agent/tests/integration/test_receiver_live.py` passes. Delete the backlog entry on pass.
+  `/unified/user/cj/ai_agent/zabbix_agent/codebase/scripts/ship-test.sh --live /unified/user/cj/ai_agent/zabbix_agent/codebase/tests/integration/test_receiver_live.py` passes. Delete the backlog entry on pass.
 - [ ] **Step 7: Commit** (ask first, Q7).
 
 ### Task 2.9: AI-analyses panel and the read-only data source
 
 **Files:**
-- Create: `/unified/user/cj/ai_agent/zabbix_agent/deploy/grafana/dashboards/analyses.json`
-- Test: extend `/unified/user/cj/ai_agent/zabbix_agent/tests/unit/test_grafana_provisioning.py`
+- Create: `/unified/user/cj/ai_agent/zabbix_agent/codebase/deploy/grafana/dashboards/analyses.json`
+- Test: extend `/unified/user/cj/ai_agent/zabbix_agent/codebase/tests/unit/test_grafana_provisioning.py`
 
 **Interfaces:**
 - Produces: a table panel on `zbxai-analyses` reading `v_ai_analyses`, newest first, `"refresh": "30s"`, an empty-state message, and a link to
@@ -116,13 +122,13 @@ Each task ends with a commit step (ask first, Q7).
 ### Task 2.10: End-to-end seeded fault
 
 **Files:**
-- Create: `/unified/user/cj/ai_agent/zabbix_agent/tests/e2e/test_seeded_disk_fault.py`
+- Create: `/unified/user/cj/ai_agent/zabbix_agent/codebase/tests/e2e/test_seeded_disk_fault.py`
 
-- [ ] **Step 1: Write the e2e test:** start `/unified/user/cj/ai_agent/zabbix_agent/tools/faults/disk_fill.sh`; wait for the Zabbix problem; assert the problem is in Grafana within 30 s of Zabbix
+- [ ] **Step 1: Write the e2e test:** start `/unified/user/cj/ai_agent/zabbix_agent/codebase/tools/faults/disk_fill.sh`; wait for the Zabbix problem; assert the problem is in Grafana within 30 s of Zabbix
   raising it, then assert a `v_ai_analyses` row for that event with at least one hypothesis whose evidence ids exist, within the benchmark's
-  p95. Record the times in `/unified/user/cj/knowledge/ai_agent/zabbix_agent/docs/operations/benchmarks.md`.
-- [ ] **Step 2: [TESTBED] Run** `/unified/user/cj/ai_agent/zabbix_agent/scripts/ship-test.sh --live /unified/user/cj/ai_agent/zabbix_agent/tests/e2e` with the stack up. Expected: PASS. If the analysis is late, the problem display must still
+  p95. Record the times in `/unified/user/cj/ai_agent/zabbix_agent/kb/docs/operations/benchmarks.md`.
+- [ ] **Step 2: [TESTBED] Run** `/unified/user/cj/ai_agent/zabbix_agent/codebase/scripts/ship-test.sh --live /unified/user/cj/ai_agent/zabbix_agent/codebase/tests/e2e` with the stack up. Expected: PASS. If the analysis is late, the problem display must still
   have passed its own assertion first.
 - [ ] **Step 3: Owner scoring.** Ask the owner to score the analysis of each seeded fault (right cause: yes or no; any invented evidence: yes or
-  no) and record the scores in `/unified/user/cj/knowledge/ai_agent/zabbix_agent/docs/operations/benchmarks.md`. Invented evidence in any analysis is a defect to fix before Phase 3.
+  no) and record the scores in `/unified/user/cj/ai_agent/zabbix_agent/kb/docs/operations/benchmarks.md`. Invented evidence in any analysis is a defect to fix before Phase 3.
 - [ ] **Step 4: Commit** (ask first, Q7).

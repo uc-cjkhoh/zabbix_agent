@@ -21,8 +21,8 @@ Host 10.168.50.40, a rehearsal box ([D13](../decisions/d13-rehearsal-testbed-and
 | Access | SSH password login works; account is in `wheel`, but `sudo` needs a password (not available to us) |
 | Security | SELinux Enforcing; firewalld active (rules not readable without root, *unverified*) |
 | Time | Chrony active, clock synchronised, zone America/New_York |
-| Zabbix | Not installed (no package, no unit, nothing listening); a fresh install is needed |
-| Listening | Only SSH on port 22 (plus chrony on localhost) |
+| Zabbix | Not installed on the host (no package, no unit); only as containers. Restarted 2026-11-26 except Grafana (see below) |
+| Listening | 2026-11-26 after the restart: SSH 22, 18081 (llama proxy) and 18080 (Zabbix web), all `0.0.0.0` per `docker ps`; 13000 does not listen (Grafana stopped). Before the restart only 22 and 18081 listened |
 | DNS to registries | `registry-1.docker.io`, `ghcr.io`, `huggingface.co` resolve; actual download not tested |
 
 ## Networks in use (avoid these)
@@ -33,15 +33,16 @@ Host 10.168.50.40, a rehearsal box ([D13](../decisions/d13-rehearsal-testbed-and
 | `clickhouse-testing-env` (bridge `br-470f01c69c37`) | 172.25.0.0/24 | another project |
 | Project block, reserved | 172.30.60.0/21 | this project ([topology](../architecture/topology.md)) |
 | `zbxai_model` (created 2026-11-23) | 172.30.62.0/24, internal | this project (llama) |
-| `zbxai_front` (created 2026-11-23) | 172.30.60.0/24 | this project (llama edge proxy so far) |
+| `zbxai_front` (created 2026-11-23) | 172.30.60.0/24 | this project (llama edge proxy and Zabbix web attached on 2026-11-26; Grafana belongs here but is stopped) |
+| `zbxai_app` (created 2026-11-24, internal) | 172.30.61.0/24 | this project (PostgreSQL, Zabbix server, Zabbix web and the MCP server attached on 2026-11-26; Grafana belongs here but is stopped) |
 
-No route to `172.30.x` existed on the host before this (`ip route`, 2026-11-23). The other three project networks are still not created.
+No route to `172.30.x` existed on the host before this (`ip route`, 2026-11-23). `zbxai_setup` is still not created. `zbxai_test` (172.30.63.0/24, internal) and the container `zbxai_pgtest` exist only while `scripts/test-store.sh` runs (first run 2026-11-26, at the owner's request): the script creates both, runs the store integration tests and removes both, and refuses to run if either name already exists; after the run none remained (checked). **Standing permission (owner, 2026-11-26):** the agent may run tests on the testbed on its own judgement, provided (1) they run in an isolated environment, (2) all test data is deleted afterwards and (3) every other container and service stays healthy during and after. `scripts/test-store.sh` enforces this: it snapshots every other container on the host, of any project (state, health, restarts, start time) plus two read-only HTTP probes of the published Zabbix web and llama edge ports (both answered 200 before, during and after), refuses to start if a running one is unhealthy or less than 3 GB of memory is available, compares the snapshot every 3 s and at the end, caps the test containers (2 CPUs and 1 GB for the test run, 1 CPU and 512 MB for `pgtest`), and compares the host's containers, networks and volumes before and after; any difference exits 1. What "healthy" means here: containers with a healthcheck stayed healthy; `zbxai_mcp` has none, so the guard shows only that it stayed running with no restart, not that it serves. Plain `ship-test.sh` unit runs have no such guard: they rely on isolation (`--network none`, 2 CPUs, 1 GB). The throwaway database and the test container are removed after each run, the test image `zbxai_test:<lock hash>` is kept as tooling, and the two anonymous volumes on the host belong to `zbxai_zabbix_server` (created 2026-11-23), not to the tests. This covers only runs inside that isolation (fake Zabbix and llama servers); calls to the real `zbxai_llama` or the real Zabbix API are not covered and still need the owner's word. On 2026-11-24 the clickhouse containers `ch1` to `ch4` no longer showed in `docker ps -a`; the network `clickhouse-testing-env` is still there. Not ours either way.
 
 ## Created by this project (llama slice, 2026-11-23)
 Built ahead of the plan's order at the owner's request: only the model runtime, none of Zabbix, PostgreSQL or Grafana.
 | Item | State |
 |---|---|
-| Code root on the testbed | `/unified/user/cj/ai_agent/zabbix_agent/` (copied from the workstation; no shared filesystem between the two hosts) |
+| Code root on the testbed | `/unified/user/cj/ai_agent/zabbix_agent/` (the files of the workstation's `codebase/` folder, copied before the 2026-11-26 folder reorganisation and left at that path; no shared filesystem between the two hosts) |
 | Volume `zbxai_models` | Holds `Llama-3.2-3B-Instruct-Q4_K_M.gguf` (2,019,377,696 bytes), SHA-256 checked against the publisher's value (bartowski repository at commit `5ab33fa94d1d`) |
 | Container `zbxai_llama` | `llama-server` (digest pinned in `deploy/versions.env`), `--parallel 1`, `--ctx-size 32768` (raised from 4096 on 2026-11-23; the model's trained limit is 131072), `--threads 6`; healthy; non-root, read-only root filesystem, no capabilities; internal network only, no published port |
 | Container `zbxai_edge` | Unprivileged nginx ([D15](../decisions/d15-llama-lan-access-through-authenticated-proxy.md)): publishes `0.0.0.0:18081`, needs the API key on everything except `/health`; on `zbxai_front` and `zbxai_model`; non-root, read-only root, no capabilities |
@@ -57,8 +58,48 @@ At `--ctx-size 32768` (2026-11-23): 4.9 GiB when idle, and 6.3 GiB after one 12,
 capabilities dropped, no published ports, SELinux `Enforcing`. This is one short request, not the benchmark; the 120 s gate in Task 2.5 step 6 is still open.
 `llama-server` itself still has no API key and allows all origins; it is only on the internal network, and the proxy adds the key.
 Remote access (verified 2026-11-23 from the workstation, same LAN): `http://10.168.50.40:18081`, `/health` open; other paths 401 without or with a wrong key; 200 with the key, as
-`Authorization: Bearer <key>` or basic auth (user `llama`); the web UI opens at `/` and the browser asks for that password. Plain HTTP, so the key is readable on the LAN.
-`./scripts/check-edge.sh <url> < <key file>` repeats the check. firewalld did not block the port (its rules are still unreadable). The licence acceptance for the 3.2 3B file is the owner's, given in chat on 2026-11-23.
+`Authorization: Bearer <key>` or, since 2026-11-24, basic auth with the shared web login ([D16](../decisions/d16-zabbix-web-and-grafana-on-lan-with-shared-login.md)); the old basic login `llama:<key>` is rejected. The web UI opens at `/` and the browser asks for the login. Plain HTTP, so the key and the login are readable on the LAN.
+`./scripts/check-edge.sh <url> <credential file> < <key file>` repeats the check. firewalld did not block the port (its rules are still unreadable). The licence acceptance for the 3.2 3B file is the owner's, given in chat on 2026-11-23.
+
+## Created by this project (Zabbix and Grafana slice, 2026-11-24)
+Built ahead of the plan's order at the owner's request ([D16](../decisions/d16-zabbix-web-and-grafana-on-lan-with-shared-login.md)): no receiver, worker, MCP server or Grafana plugin yet.
+
+**Update 2026-11-26 (later, at the owner's request): the Zabbix core is running again, with the official MCP server added.** `zbxai_postgres`, `zbxai_zabbix_server` and `zbxai_zabbix_web` were started by name and reported healthy; `zbxai_grafana` is still stopped. The images pinned by digest were found locally, nothing was re-pulled for them, and no container was recreated. Zabbix web is published on `0.0.0.0:18080` again (not re-reached from the workstation yet). The Zabbix API answered `apiinfo.version` = `8.0.0` from inside `zbxai_app`. Details of the new container are in the section after the table below.
+
+**Earlier state (checked read-only 2026-11-26, before that restart): paused, stopped but not removed.** The owner said the containers and images were deleted; the testbed showed otherwise, and the owner confirmed the slice is *paused*, not dropped.
+- `zbxai_postgres`, `zbxai_zabbix_server`, `zbxai_zabbix_web` and `zbxai_grafana` still exist, all `Exited` since 2026-11-24 04:34 UTC (exit code 0, the server 137; no out-of-memory kill; restart policy `unless-stopped`, which Docker does not apply to a container that was stopped by hand). *Unverified:* who or what stopped them, and that 137 was a kill after the stop grace period.
+- Images still on disk: `postgres:16-alpine`, `grafana/grafana-oss:13.0.2`, and the Zabbix server and web images, which now carry no tag (`<none>`). *Unverified:* how the tags were lost (the owner's removal attempt is a guess, not seen).
+- Volumes `zbxai_pgdata`, `zbxai_grafana` and `zbxai_secrets` are intact (the Zabbix database, Grafana state, secrets). The network `zbxai_app` exists with no members. Ports 13000 and 18080 are not listening.
+- Running: only `zbxai_llama` (healthy) and `zbxai_edge` (healthy, 18081). Both slice definitions are still in `compose.yaml` on both hosts.
+- The "All healthy" and the access results in the table below are the 2026-11-24 observations, kept as history; they are not the present state. Starting the slice again needs the owner's go ([rules](#rules)). *Unverified:* whether compose finds the untagged Zabbix images or pulls them again.
+
+| Item | State (2026-11-24 unless dated) |
+|---|---|
+| Containers | `zbxai_postgres` (PostgreSQL 16, user 70, `zbxai_app` only, no published port), `zbxai_zabbix_server` 8.0.0 (`zbxai_app` only), `zbxai_zabbix_web` (`0.0.0.0:18080`, `front` and `app`), `zbxai_grafana` 13.0.2 (`0.0.0.0:13000`, `front` and `app`). All healthy; non-root, all capabilities dropped, `no-new-privileges`. Root filesystems are writable (read-only not tried). Images pinned by tag and digest in `deploy/versions.env` |
+| Volumes | `zbxai_pgdata`, `zbxai_grafana`, `zbxai_secrets` (random database password, and the web login as Grafana's `*__FILE` files; written by `scripts/secrets-init.sh`, each sub-directory owned by its image's user, mode 0400) |
+| Login | `unified` with the shared development password on Grafana, Zabbix web (the default `Admin` account was renamed; `Admin`/`zabbix` is rejected) and the llama web UI. The old `admin`/`admin` on Grafana is rejected. Zabbix's password policy was relaxed (minimum length 1, easy-to-guess check off) to allow it. The values are only in `deploy/secrets/web-credential` and [credentials.local.md](credentials.local.md) |
+| Observed | Zabbix server started and created its schema; PostgreSQL password read from a file by the 8.0 image (`POSTGRES_PASSWORD_FILE` works, checked by it starting); `zbxai_app` has no egress (a public address and the LAN gateway both unreachable); a second `up -d` recreated nothing; reached from the workstation across the LAN: Zabbix web 200 on 18080, its API logs in, Grafana `/api/health` ok with the login accepted on 13000. Grafana's startup plugin fetching is switched off in compose (its log showed a preinstall attempt before that, 2026-11-24) and its logs now show no install or download; the running Zabbix server reports 8.0.0. Idle memory: PostgreSQL 156 MiB, Zabbix server 53 MiB, web 54 MiB, Grafana 167 MiB |
+| Not done | Grafana's Zabbix plugin (it would download at start; to be baked into an image, Task 1.4), the read-only role and tokens, the PostgreSQL SELECT-only role, the webhook. The built-in host `Zabbix server` shows its agent item errors because no agent runs |
+
+## Created by this project (Zabbix MCP server, interim, 2026-11-26)
+Added at the owner's request ([D17](../decisions/d17-official-zabbix-mcp-server-as-interim.md)); the agent that calls it does not exist yet.
+| Item | State |
+|---|---|
+| Image | `zabbix/zabbix-mcp-server:alpine-8.0-latest`, pinned by digest `sha256:0b40d680…09b3` in `deploy/versions.env` (Zabbix's own image, AGPL-3.0; label version 8.0.0, built 2026-11-22). The exact tag `alpine-8.0.0` has a different digest and was not used |
+| Container `zbxai_mcp` | On `zbxai_app` only (internal, no egress), no published port; user 1997 (non-root), all capabilities dropped, `no-new-privileges`; listens on 8443 at `/mcp` (streamable HTTP). Root filesystem not made read-only (not tried); no healthcheck defined yet |
+| Read-only guard | `ZBX_ALLOWTOOL_REGEXP_0=^(host\|hostgroup\|trigger\|problem\|event)_get$` and `ZBX_DENYTOOL_1=*`. Observed in its log: 4 tools exposed and 18 tools denied by configuration, including every `problem_*` write tool and `maintenance_*` |
+| Auth | The server keeps no Zabbix credential: the caller sends the Zabbix API token as a bearer header on every request. A call from `zbxai_app` with no token returned 401. `ZBX_ALLOWEDIP` is the `zbxai_app` subnet; the probe from that network got 401, not a refusal |
+| Bounds (rule 8) | Per the server's own config comments, not tested: each list tool takes a per-call `limit` (default 100, maximum 1000), `MaxResponseSize` caps a response (default 64K, range 16K to 256K) and `Timeout` caps a Zabbix API request (default 10 s, range 3 to 30). The compose file sets none of them, so the defaults apply (the container environment showed no `ZBX_TIMEOUT` or `ZBX_MAX_RESPONSE_SIZE`). The server does not make the caller pass a limit: the default is 100, so the caller must still pass its own smaller limit and time window. Effective values and truncation are *unverified*. Rule 8 is not claimed as met |
+| Not done | The read-only Zabbix role, user and token (a Zabbix write, needs its own sign-off, rule 6), so no authenticated call has been made. *Unverified:* which 4 tools are exposed, that a call with a token works, that a User-type role blocks writes (backlog), memory under load (4.95 MiB idle, `docker stats` 2026-11-26), and whether the server makes any call other than to Zabbix (none documented) |
+
+## Created by this project (Python test and runtime images, 2026-11-26)
+Needed to run Task 2.0's tests in a container ([plan](../development/implementation-plan/phase-1-platform.md), Task 1.1 subset). From the workstation: `./scripts/ship-test.sh` (code travels as a tar on stdin; nothing is written to the testbed filesystem).
+| Item | State |
+|---|---|
+| Images | `python:3.12-slim` (pinned `sha256:191083cd…1b4b`, Python 3.12.16); `zbxai_test:3f1fc1c51283` (303 MB; the tag is the first 12 hex of the lock file's SHA-256, so it rebuilds when the lock changes); `zbxai_runtime:dev` (303 MB; `CMD` and entrypoint empty, checked after clearing the `python3` inherited from the base; user 10001). Disk: `df` free space went from 38G to 37G this session (used stays about 12G); `docker system df` shows 3.79 GB of images in total |
+| Test containers | `--rm`, `--network none`, read-only root, all capabilities dropped, `no-new-privileges`, code on a tmpfs. None left behind |
+| Lock generation | `scripts/lock.sh`: a throwaway container on a temporary `zbxai_setup` network (172.30.64.0/24, not internal) downloads from PyPI; the network is removed afterwards. 37 hashed packages (for example `mcp` 1.30.0, `pydantic` 2.14.4). Image builds also download packages; which network a build uses was not checked (*unverified*) |
+| Verified | 14 unit tests pass; `ruff check` clean; the runtime image imports `zbxai.config` with no network. *Unverified:* the image builds from a cold cache on a second host; running the tests twice at once |
 
 ## Not ours: leave alone
 Four stopped containers `ch1` to `ch4` (image `clickhouse-testenv:almalinux9-systemd`) and the network

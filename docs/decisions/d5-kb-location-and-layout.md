@@ -7,7 +7,7 @@ components: []
 # D5 — KB location, layout and rulebook
 
 **Decision:**
-- The KB root is `/unified/user/cj/knowledge/ai_agent/zabbix_agent/`, docs only.
+- The KB root is `/unified/user/cj/ai_agent/zabbix_agent/kb/`, docs only.
 - Layout and conventions follow agent-behavior (`kb/size-and-layout.md`, `kb/conventions.md`,
   `kb/index-files.md`): `CLAUDE.md` index, `docs/` folders, front-matter on every doc, size limits (index
   files under 200 lines, other docs under 300), current state only.
