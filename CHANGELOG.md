@@ -3,6 +3,12 @@
 Generated from `git log` on `main` by `.claude/hooks/update-changelog.py` after each commit. Do not edit by hand.
 One table per date, times in UTC+8. Commits that only touch this file are not listed.
 
+## 2026-11-26
+
+| Time (UTC+8) | Change | Commits |
+|---|---|---|
+| 14:52 | docs: record D16 and D17, the agent code built, test permission and topology viewer | `b687d26` |
+
 ## 2026-11-24
 
 | Time (UTC+8) | Change | Commits |
