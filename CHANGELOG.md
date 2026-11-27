@@ -7,6 +7,8 @@ One table per date, times in UTC+8. Commits that only touch this file are not li
 
 | Time (UTC+8) | Change | Commits |
 |---|---|---|
+| 14:57 | docs: record D19, the scope cut, and update architecture, plan, backlog and testbed docs | `7615a0e` |
+| 14:42 | docs: checkpoint before scope cut | `7df688d` |
 | 10:07 | docs: record D18, the log replay rig design, plan, testbed state and topology | `69dcb45` |
 
 ## 2026-11-26
