@@ -1,12 +1,12 @@
 ---
 title: Decision log
-description: Lookup of decision records D1..D17 and the open questions that need the owner
+description: Lookup of decision records D1..D18 and the open questions that need the owner
 components: []
 ---
 
 # Decisions
 
-All of D1 to D17 are decided: the owner made D1 to D5, D8 to D17 and read-only v1 directly; D6, D7's thin server and the mechanisms inside D8 and D11 were the agent's proposals, accepted with the approved [design plan](../architecture/design-plan.md). Verification items can still overturn one.
+All of D1 to D18 are decided: the owner made D1 to D5, D8 to D18 and read-only v1 directly; D6, D7's thin server and the mechanisms inside D8 and D11 were the agent's proposals, accepted with the approved [design plan](../architecture/design-plan.md). Verification items can still overturn one.
 
 | ID | Decision | File |
 |---|---|---|
@@ -27,6 +27,7 @@ All of D1 to D17 are decided: the owner made D1 to D5, D8 to D17 and read-only v
 | D15 | Llama is reachable from the LAN on 0.0.0.0:18081 only through an nginx proxy that requires an API key (owner decision) | [d15-llama-lan-access-through-authenticated-proxy.md](d15-llama-lan-access-through-authenticated-proxy.md) |
 | D16 | Zabbix web (18080) and Grafana (13000) are published on 0.0.0.0 with one shared development login, also used by the llama web UI (owner decision) | [d16-zabbix-web-and-grafana-on-lan-with-shared-login.md](d16-zabbix-web-and-grafana-on-lan-with-shared-login.md) |
 | D17 | The official `zabbix-mcp-server` runs first as an interim step; D7's thin custom server stays the target (owner decision) | [d17-official-zabbix-mcp-server-as-interim.md](d17-official-zabbix-mcp-server-as-interim.md) |
+| D18 | A replay of a real module log goes to the real testbed Zabbix (HTTP) and a local file, at its recorded pace, to test the agent (owner decision) | [d18-log-replay-rig-on-the-real-zabbix.md](d18-log-replay-rig-on-the-real-zabbix.md) |
 
 ## Open questions (the owner's to decide; nothing is assumed)
 | # | Question | Blocks |

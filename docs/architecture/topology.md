@@ -54,7 +54,7 @@ check in the [verification backlog](../development/backlog/design-verification.m
 ## 3. Networks
 | Network | Subnet | Internal | Members | Purpose |
 |---|---|---|---|---|
-| `zbxai_front` | 172.30.60.0/24 | no | grafana, zabbix_web, edge | Only path to published ports |
+| `zbxai_front` | 172.30.60.0/24 | no | grafana, zabbix_web, edge, replay | Only path to published ports; the replay rig reaches `zabbix_web` and the edge `/health` here |
 | `zbxai_app` | 172.30.61.0/24 | yes | all services except llama | Service traffic; no egress |
 | `zbxai_model` | 172.30.62.0/24 | yes | llama, edge, worker, zabbix_server | Model traffic; no egress |
 | `zbxai_test` | 172.30.63.0/24 | yes | pgtest, test_run | Throwaway test runs |
@@ -85,6 +85,7 @@ All names start with `zbxai_`. Image tags and digests are fixed in `versions.env
 | `zbxai_mcp` | app | 8443 at `/mcp` (streamable HTTP; the official image, interim, [D17](../decisions/d17-official-zabbix-mcp-server-as-interim.md); D7's custom server was planned for 8001) | none | none | 0.1 GB estimate; 5 MiB observed idle |
 | `zbxai_llama` | model | 8080 | none | `zbxai_models` (read-only) | 6.0 GB (8B); the 3B observed at 1.8 GB (4k context), 4.9 GB idle and 6.3 GB after a 12.5k prompt (32k context) |
 | `zbxai_edge` (nginx, [D15](../decisions/d15-llama-lan-access-through-authenticated-proxy.md)) | front, model | 8080 | 0.0.0.0:18081 (needs the API key except `/health`) | `zbxai_edge_conf` (read-only) | 0.02 GB, *estimate* |
+| `zbxai_replay` ([D18](../decisions/d18-log-replay-rig-on-the-real-zabbix.md), *built 2026-11-26, started only on request*) | front | 8090 (monitor page, read-only) | 0.0.0.0:18090 | `zbxai_replay_data` (read-only), `/unified/user/cj/data/replay_out` (run files), the push token file (read-only, once it exists) | 512 MB cap, 1 CPU cap; started by `scripts/replay.sh up`, not by compose |
 | `zbxai_disk_reporter` | app | none | none | none | 0.05 GB |
 | `zbxai_loadgen`, `zbxai_fault_*` | app | none | none | none | 0.4 GB |
 | `zbxai_pgtest`, `zbxai_test_run` | test | 5432 (pgtest) | none | none | 0.5 GB, transient; `pgtest` (512 MB limit) lives only during `scripts/test-store.sh` (first run 2026-11-26). Unit-test runs today are `zbxai_test_run_<pid>` on `--network none` (`scripts/ship-test.sh`), a different, simpler path |
@@ -110,6 +111,9 @@ the MCP server is the model's only path to Zabbix and is called only when model 
 | grafana | zabbix_web | JSON-RPC, its own read-only token | app | Problems view, trends |
 | grafana | postgres | PostgreSQL as `zbxai_grafana_ro` (SELECT-only) | app | AI-analyses table |
 | people | grafana | HTTP 13000 | LAN, front | The only notification surface |
+| replay (runs by `docker exec`) | zabbix_web | Zabbix JSON-RPC `history.push`, push-only token, batched per 100 ms tick | front | Replayed module log messages to the real Zabbix (D18; the Zabbix side is *not yet applied*) |
+| replay | edge, zabbix_web | HTTP GET `/health`, `/` | front | Run guard probes |
+| people | replay | HTTP 18090 | LAN, front | Read-only monitor page of a replay |
 | people, tools | edge | HTTP 18081, bearer or basic auth | LAN, front | Remote chat and web UI for the model (D15; not part of the agent flow) |
 | edge | llama | HTTP 8080 | model | Forwards authenticated requests |
 | owner | zabbix_web | HTTP 18080 through an ssh tunnel | ssh, front | Fallback view and administration |
