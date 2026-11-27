@@ -94,9 +94,9 @@ Added at the owner's request on 2026-11-26; [D19](../decisions/d19-scope-cut-aft
 Needed to run Task 2.0's tests in a container ([plan](../development/implementation-plan/phase-1-platform.md), Task 1.1 subset). From the workstation: `./scripts/ship-test.sh` (code travels as a tar on stdin; nothing is written to the testbed filesystem).
 | Item | State |
 |---|---|
-| Images | `python:3.12-slim` (pinned `sha256:191083cd…1b4b`, Python 3.12.16); `zbxai_test:3f1fc1c51283` (303 MB; the tag is the first 12 hex of the lock file's SHA-256, so it rebuilds when the lock changes); `zbxai_runtime:dev` (303 MB; `CMD` and entrypoint empty, checked after clearing the `python3` inherited from the base; user 10001). Disk: `df` free space went from 38G to 37G this session (used stays about 12G); `docker system df` shows 3.79 GB of images in total |
+| Images | `python:3.12-slim` (pinned `sha256:191083cd…1b4b`, Python 3.12.16); `zbxai_test:a58b472e1ac9` (built 2026-11-27 for the regenerated lock; the tag is the first 12 hex of the lock file's SHA-256, so it rebuilds when the lock changes; the older `zbxai_test:3f1fc1c51283` of the previous lock, 303 MB, is still on disk and unused; the new image's size was not recorded); `zbxai_runtime:dev` (303 MB; `CMD` and entrypoint empty, checked after clearing the `python3` inherited from the base; user 10001). Disk: `df` free space went from 38G to 37G this session (used stays about 12G); `docker system df` shows 3.79 GB of images in total |
 | Test containers | `--rm`, `--network none`, read-only root, all capabilities dropped, `no-new-privileges`, code on a tmpfs. None left behind |
-| Lock generation | `scripts/lock.sh`: a throwaway container on a temporary `zbxai_setup` network (172.30.64.0/24, not internal) downloads from PyPI; the network is removed afterwards. 37 hashed packages (for example `mcp` 1.30.0, `pydantic` 2.14.4; `mcp` is no longer declared since D19, so the lock needs regenerating, backlog `regenerate-lock`). Image builds also download packages; which network a build uses was not checked (*unverified*) |
+| Lock generation | `scripts/lock.sh`: a throwaway container on a temporary `zbxai_setup` network (172.30.64.0/24, not internal) downloads from PyPI; the network is removed afterwards. Regenerated 2026-11-27 at the owner's go (the setup network and the container were gone afterwards, checked): 22 hashed packages, down from 37. The 15 removed were `mcp` and the packages only it needed; none was added; `httpx` moved from 0.28.1 to 0.29.0 because the lock is resolved fresh each time. Unit tests (186) and the isolated integration, e2e and live-Zabbix tests (35) passed on the new lock. Image builds also download packages; which network a build uses was not checked (*unverified*) |
 | Verified | 14 unit tests pass; `ruff check` clean; the runtime image imports `zbxai.config` with no network. *Unverified:* the image builds from a cold cache on a second host; running the tests twice at once |
 
 ## Withdrawn by D19: log replay rig (built 2026-11-26)
@@ -136,13 +136,13 @@ Done at the owner's request on 2026-11-27, about 06:55 to 07:05 UTC testbed time
 **Verified afterwards (observed):**
 - Containers: `zbxai_grafana` (exited), `zbxai_llama`, `zbxai_postgres`, `zbxai_zabbix_server` and `zbxai_zabbix_web` (all healthy).
 - Volumes: `zbxai_grafana`, `zbxai_models`, `zbxai_pgdata` and `zbxai_secrets`.
-- Images `zbxai_runtime:dev` and `zbxai_test:3f1fc1c51283` were kept as tooling.
+- Images `zbxai_runtime:dev` and `zbxai_test:3f1fc1c51283` were kept as tooling (a newer `zbxai_test` image was built later the same day for the regenerated lock, see above).
 - `ss` shows only 22 and `127.0.0.1:18080` listening; `GET http://127.0.0.1:18080/` on the testbed answers 200; from the workstation the LAN ports 18080, 18081 and 18090 refuse connections.
 - The `ch1` to `ch4` containers do not show in `docker ps -a` (as already noted 2026-11-24); the network `clickhouse-testing-env` is still there. None of it was touched.
 
 **Zabbix web now needs an ssh tunnel:** `ssh -L 18080:127.0.0.1:18080 <testbed>`, then `http://127.0.0.1:18080` on the workstation.
 
-**Still open:** regenerating `requirements.lock`, which still lists `mcp` and its dependencies (backlog `regenerate-lock`). It is not a leftover; `scripts/lock.sh` needs a throwaway network and a download on the testbed, so it still needs its own go. The testbed code root holds only `deploy/`, `scripts/`, `.env`, `.dockerignore` and `.gitignore` (no `src/`, `tools/` or `tests/`; it never held them).
+**Nothing from the cleanup is open.** `requirements.lock` was regenerated afterwards, at the owner's go (see the lock row above). The testbed code root holds only `deploy/`, `scripts/`, `.env`, `.dockerignore` and `.gitignore` (no `src/`, `tools/` or `tests/`; it never held them).
 
 ## Not ours: leave alone
 Four stopped containers `ch1` to `ch4` (image `clickhouse-testenv:almalinux9-systemd`) and the network
