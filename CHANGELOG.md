@@ -7,6 +7,7 @@ One table per date, times in UTC+8. Commits that only touch this file are not li
 
 | Time (UTC+8) | Change | Commits |
 |---|---|---|
+| 15:35 | docs: record the regenerated lock and drop its backlog item | `8f23cab` |
 | 15:11 | docs: record the testbed cleanup as done and Zabbix web on loopback | `c6c8a7c` |
 | 14:57 | docs: record D19, the scope cut, and update architecture, plan, backlog and testbed docs | `7615a0e` |
 | 14:42 | docs: checkpoint before scope cut | `7df688d` |
