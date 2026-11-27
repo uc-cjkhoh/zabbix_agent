@@ -7,7 +7,7 @@ components: []
 # Topology facts
 
 One-screen version of the [topology](topology.md). **Status: partly built; Grafana is paused.** On the testbed exist the networks `front`, `app` and `model`, the volumes and the containers llama (3B model),
-postgres, zabbix_server, zabbix_web and grafana ([topology status](topology.md)); of these llama, postgres, zabbix_server and zabbix_web run (restarted 2026-11-26); grafana has been stopped since 2026-11-24, not removed. The edge proxy and the interim MCP server were cut by [D19](../decisions/d19-scope-cut-after-full-review.md); they were last recorded running on 2026-11-26 and stay until the owner approves cleanup (*unverified* since). The agent service, reporters and test networks do not exist. The evidence below is what has
+postgres, zabbix_server, zabbix_web and grafana ([topology status](topology.md)); of these llama, postgres, zabbix_server and zabbix_web run (restarted 2026-11-26; seen healthy again 2026-11-27 after the cleanup, `zabbix_web` recreated that day); grafana has been stopped since 2026-11-24, not removed. The edge proxy and the interim MCP server were cut by [D19](../decisions/d19-scope-cut-after-full-review.md) and, with the replay container, removed from the testbed on 2026-11-27 (observed, [Cleanup done](../operations/testbed.md#cleanup-done-d19-2026-11-27)). The agent service, reporters and test networks do not exist. The evidence below is what has
 been observed on the testbed plus the design reasoning, so only the items marked *observed* are *proven to work*
 ([rule 14](../development/coding-standards.md)). Each claim carries a status:
 **observed** (seen on the real host), **designed** (follows from the design, not yet run), **unverified** (has a check in the
@@ -35,9 +35,9 @@ been observed on the testbed plus the design reasoning, so only the items marked
   Transient: setup 172.30.64.0/24 (egress, model download only), test 172.30.63.0/24 (internal)
 
   Built: Grafana, Zabbix web, Zabbix server (on app only), PostgreSQL, llama-server (3B model).
-  Running 2026-11-26: llama-server, PostgreSQL, Zabbix server and Zabbix web (the testbed still publishes it on :18080
-  on 0.0.0.0 until the new compose is applied, unverified). Grafana is stopped (container, image and volume kept), so
-  :13000 does not answer. The edge proxy and the official MCP server were also running; D19 cut them (cleanup pending).
+  Running 2026-11-27 (observed after the cleanup): llama-server, PostgreSQL, Zabbix server and Zabbix web (published on
+  127.0.0.1:18080 only; the LAN is refused). Grafana is stopped (container, image and volume kept), so :13000 does
+  not answer. The edge proxy, the official MCP server and the replay container were removed by D19 on 2026-11-27.
   Designed, not created: the webhook, the agent service, simulated modules, Zabbix server on model,
   Grafana's Zabbix and PostgreSQL data sources (plugin not installed), and the read-only token and SELECT-only role.
 ```

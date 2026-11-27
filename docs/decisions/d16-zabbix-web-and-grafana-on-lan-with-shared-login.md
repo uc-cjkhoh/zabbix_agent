@@ -7,7 +7,7 @@ components: []
 # D16 — Grafana on 0.0.0.0, one shared development login (Zabbix web on loopback since D19)
 
 **Status:** owner decision (2026-11-24): the owner asked to set up the Zabbix and Grafana containers first, bound to `0.0.0.0` for remote access, with one shared development login
-for all consoles. **Amended 2026-11-27 by [D19](d19-scope-cut-after-full-review.md):** Zabbix web is published on host loopback only (`127.0.0.1:${ZBXAI_ZBXWEB_PORT}`, reach it through an ssh tunnel); the llama proxy and its web UI no longer exist. The text below is the original decision; the consequences that mention Zabbix web on the LAN no longer apply once the new compose file is applied on the testbed (until then the running container is still on `0.0.0.0:18080`, *unverified*).
+for all consoles. **Amended 2026-11-27 by [D19](d19-scope-cut-after-full-review.md):** Zabbix web is published on host loopback only (`127.0.0.1:${ZBXAI_ZBXWEB_PORT}`, reach it through an ssh tunnel); the llama proxy and its web UI no longer exist. The text below is the original decision; the consequences that mention Zabbix web on the LAN no longer apply: the new compose file was applied on the testbed on 2026-11-27 and Zabbix web now listens on `127.0.0.1:18080` only (observed; the LAN is refused).
 
 **Decision:**
 - Zabbix web was published on `0.0.0.0:18080` and Grafana on `0.0.0.0:13000` (`ZBXAI_ZBXWEB_BIND`, `ZBXAI_GRAFANA_BIND`). This overrode the topology's earlier choice of loopback for Zabbix web

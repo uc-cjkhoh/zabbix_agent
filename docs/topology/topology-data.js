@@ -2,10 +2,10 @@
  * Topology data: the one source for both panels of index.html.
  *
  * Left panel  = what is built, from codebase/deploy/compose.yaml and the status line of
- *               docs/architecture/topology.md. Run state checked on the testbed 2026-11-26: llama, postgres,
- *               zabbix_server and zabbix_web run; grafana is stopped (kept, paused), see `observed`. D19 (2026-11-27)
- *               removed edge, mcp and the replay rig from compose and the design; the containers zbxai_edge and
- *               zbxai_mcp were last recorded running on 2026-11-26 and stay on the testbed until the owner approves cleanup.
+ *               docs/architecture/topology.md. Run state checked on the testbed 2026-11-27 after the cleanup: llama,
+ *               postgres, zabbix_server and zabbix_web run and are healthy; grafana is stopped (kept, paused), see
+ *               `observed`. D19 (2026-11-27) removed edge, mcp and the replay rig from compose and the design, and the
+ *               containers zbxai_edge, zbxai_mcp and zbxai_replay were removed from the testbed the same day.
  * Right panel = the target, from topology.md sections 3 to 5 (container table is the authority).
  *
  * Status words follow the KB (coding-standards rule 14):
@@ -59,10 +59,10 @@ window.TOPOLOGY = {
     { id: "zabbix_web", name: "zbxai_zabbix_web", zone: "front", kind: "svc", status: "built",
       sub: "Zabbix frontend and API · host loopback :18080",
       nets: { target: ["front", "app"], built: ["front", "app"] },
-      observed: "reached from the workstation 2026-11-24; stopped 2026-11-24, started again 2026-11-26 and healthy; port not re-reached from the workstation",
+      observed: "reached from the workstation 2026-11-24; stopped 2026-11-24, started again 2026-11-26; recreated 2026-11-27 on 127.0.0.1:18080 only, healthy, answers 200 on the testbed, and the LAN refuses 18080",
       detail: { Listens: "8080", Published: "127.0.0.1:18080 (D16 amended by D19)", Volumes: "reads zbxai_secrets/zabbix", "RAM": "0.05 GB observed" },
       note: "Admin-capable, shared development login over plain HTTP, so loopback only: reach it through an ssh tunnel.",
-      leftNote: "The testbed still publishes 0.0.0.0:18080 until the new compose is applied there (unverified 2026-11-27)." },
+      leftNote: "Since 2026-11-27 the testbed publishes 127.0.0.1:18080 only (recreated from the new compose; observed)." },
 
     // App
     { id: "postgres", name: "zbxai_postgres", zone: "app", kind: "svc", status: "built",

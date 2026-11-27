@@ -6,7 +6,7 @@ components: []
 
 # Architecture overview
 
-**Status: the [design plan](design-plan.md) is approved.** The agent's receiver, worker, pipeline, clients and store exist as tested code in the code root (unit tests with fakes; the store's SQL passed its tests once on a throwaway PostgreSQL) but none of it is deployed, so nothing of the agent runs; on the testbed llama and Zabbix (server, web, PostgreSQL) run, and Grafana is paused ([topology status](topology.md), 2026-11-26). The edge proxy and the interim MCP server were cut by [D19](../decisions/d19-scope-cut-after-full-review.md) and still run there until the owner approves cleanup. This file is the flow
+**Status: the [design plan](design-plan.md) is approved.** The agent's receiver, worker, pipeline, clients and store exist as tested code in the code root (unit tests with fakes; the store's SQL passed its tests once on a throwaway PostgreSQL) but none of it is deployed, so nothing of the agent runs; on the testbed llama and Zabbix (server, web, PostgreSQL) run, and Grafana is paused ([topology status](topology.md), 2026-11-26). The edge proxy and the interim MCP server were cut by [D19](../decisions/d19-scope-cut-after-full-review.md) and were removed from the testbed on 2026-11-27 ([cleanup](../operations/testbed.md#cleanup-done-d19-2026-11-27)). This file is the flow
 only; why each part exists, the alternatives and the failure behaviour are in the design plan. The networks, subnets, ports and
 containers are in the [topology](topology.md).
 
