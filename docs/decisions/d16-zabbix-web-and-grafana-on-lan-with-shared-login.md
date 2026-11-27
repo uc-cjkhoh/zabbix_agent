@@ -1,19 +1,19 @@
 ---
 title: D16 Zabbix web and Grafana on the LAN with a shared development login
-description: Owner decision to publish Zabbix web and Grafana on 0.0.0.0 and to use one shared development login, also for the llama web UI
+description: Owner decision to publish Grafana on 0.0.0.0 with one shared development login; Zabbix web is on host loopback only since D19
 components: []
 ---
 
-# D16 — Zabbix web and Grafana on 0.0.0.0, one shared development login
+# D16 — Grafana on 0.0.0.0, one shared development login (Zabbix web on loopback since D19)
 
 **Status:** owner decision (2026-11-24): the owner asked to set up the Zabbix and Grafana containers first, bound to `0.0.0.0` for remote access, with one shared development login
-for all three consoles, including the llama web UI on `0.0.0.0:18081`.
+for all consoles. **Amended 2026-11-27 by [D19](d19-scope-cut-after-full-review.md):** Zabbix web is published on host loopback only (`127.0.0.1:${ZBXAI_ZBXWEB_PORT}`, reach it through an ssh tunnel); the llama proxy and its web UI no longer exist. The text below is the original decision; the consequences that mention Zabbix web on the LAN no longer apply once the new compose file is applied on the testbed (until then the running container is still on `0.0.0.0:18080`, *unverified*).
 
 **Decision:**
-- Zabbix web is published on `0.0.0.0:18080` and Grafana on `0.0.0.0:13000` (`ZBXAI_ZBXWEB_BIND`, `ZBXAI_GRAFANA_BIND`). This overrides the topology's earlier choice of loopback for Zabbix web
-  and the testbed's LAN address for Grafana.
+- Zabbix web was published on `0.0.0.0:18080` and Grafana on `0.0.0.0:13000` (`ZBXAI_ZBXWEB_BIND`, `ZBXAI_GRAFANA_BIND`). This overrode the topology's earlier choice of loopback for Zabbix web
+  and the testbed's LAN address for Grafana. Since D19 only Grafana is on `0.0.0.0`; `ZBXAI_ZBXWEB_BIND` is gone from compose.
 - Grafana's admin login is the shared development login, read from files in the named volume `zbxai_secrets` (`GF_SECURITY_ADMIN_*__FILE`), so it is in no compose file, `.env` or script.
-- The llama web UI (the proxy's basic auth) uses the same login; the API key stays valid as `Authorization: Bearer <key>` for API clients. The old basic login `llama:<key>` is gone ([D15](d15-llama-lan-access-through-authenticated-proxy.md)).
+- The llama web UI shared the same login through the proxy's basic auth. The proxy was removed by D19, so this no longer applies.
 - The login is written once, on the testbed, to the git-ignored `deploy/secrets/web-credential` (one line `user:password`) and in the git-ignored [credentials.local.md](../operations/credentials.local.md). It never appears in this KB.
 - PostgreSQL's password is not the shared login: it is random, made by `scripts/secrets-init.sh`, and the database is on the internal `zbxai_app` network with no published port.
 

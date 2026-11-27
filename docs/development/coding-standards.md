@@ -44,8 +44,8 @@ Source tags: **Owner** = the owner's development restrictions; **Core n** = rule
 14. **Mark the unverified.** Planned is not installed; declared is not observed.
 15. **Docs follow the code, in the same change.** Where they disagree, the code wins and the doc is fixed.
     After any change that alters something a doc describes: overwrite the stale lines in the owning doc,
-    search the docs for the old wording and fix every hit, fix inbound links when moving a file or heading,
-    and run the KB check before reporting done. A question or read-only check needs no edit.
+    search the docs for the old wording and fix every hit, and fix inbound links when moving a file or heading.
+    A question or read-only check needs no edit.
 
 ## Monitoring UI
 16. **Grafana is read-only and never a second alert engine.** Its Zabbix data source uses its own read-only API

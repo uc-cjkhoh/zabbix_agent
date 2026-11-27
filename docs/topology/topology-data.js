@@ -2,8 +2,10 @@
  * Topology data: the one source for both panels of index.html.
  *
  * Left panel  = what is built, from codebase/deploy/compose.yaml and the status line of
- *               docs/architecture/topology.md. Run state checked on the testbed 2026-11-26: llama, edge, postgres,
- *               zabbix_server, zabbix_web and the official mcp run; grafana is stopped (kept, paused), see `observed`.
+ *               docs/architecture/topology.md. Run state checked on the testbed 2026-11-26: llama, postgres,
+ *               zabbix_server and zabbix_web run; grafana is stopped (kept, paused), see `observed`. D19 (2026-11-27)
+ *               removed edge, mcp and the replay rig from compose and the design; the containers zbxai_edge and
+ *               zbxai_mcp were last recorded running on 2026-11-26 and stay on the testbed until the owner approves cleanup.
  * Right panel = the target, from topology.md sections 3 to 5 (container table is the authority).
  *
  * Status words follow the KB (coding-standards rule 14):
@@ -14,7 +16,7 @@
  * No secrets, keys or passwords belong here.
  */
 window.TOPOLOGY = {
-  asOf: "2026-11-26",
+  asOf: "2026-11-27",
 
   host: "Testbed chcluster 10.168.50.40 · AlmaLinux 9.8 · 8 vCPU · 15 GiB · no GPU · 40 GB free",
 
@@ -41,7 +43,7 @@ window.TOPOLOGY = {
     // Outside
     { id: "people", name: "People", zone: "ext", kind: "ext", status: "built",
       sub: "Browsers on the LAN",
-      detail: { Role: "Open Grafana and Zabbix web; the only notification surface is Grafana (D8)" } },
+      detail: { Role: "Open Grafana (Zabbix web only through an ssh tunnel); the only notification surface is Grafana (D8)" } },
     { id: "workstation", name: "Workstation dataweb", zone: "ext", kind: "ext", status: "built",
       sub: "10.168.49.20 · ssh :22, no Docker",
       detail: { Role: "Edits code and KB; docker CLI and test streams over ssh" } },
@@ -55,16 +57,12 @@ window.TOPOLOGY = {
       note: "Own read-only Zabbix token and a SELECT-only PostgreSQL role; no alert rules (rule 16).",
       leftNote: "Compose mounts no provisioning, so the Zabbix and PostgreSQL datasources are not built; whether any were added by hand is unverified." },
     { id: "zabbix_web", name: "zbxai_zabbix_web", zone: "front", kind: "svc", status: "built",
-      sub: "Zabbix frontend and API · LAN :18080",
+      sub: "Zabbix frontend and API · host loopback :18080",
       nets: { target: ["front", "app"], built: ["front", "app"] },
       observed: "reached from the workstation 2026-11-24; stopped 2026-11-24, started again 2026-11-26 and healthy; port not re-reached from the workstation",
-      detail: { Listens: "8080", Published: "0.0.0.0:18080 (D16)", Volumes: "reads zbxai_secrets/zabbix", "RAM": "0.05 GB observed" },
-      note: "Admin-capable, shared development login over plain HTTP. Loopback plus ssh tunnel is the way back." },
-    { id: "edge", name: "zbxai_edge", zone: "front", kind: "svc", status: "built",
-      sub: "nginx key proxy for llama · LAN :18081",
-      nets: { target: ["front", "model"], built: ["front", "model"] },
-      detail: { Listens: "8080", Published: "0.0.0.0:18081 (API key needed except /health)", Volumes: "zbxai_edge_conf (read-only)", "RAM": "0.02 GB estimate" },
-      note: "D15. Remote chat and web UI for the model; not part of the agent flow." },
+      detail: { Listens: "8080", Published: "127.0.0.1:18080 (D16 amended by D19)", Volumes: "reads zbxai_secrets/zabbix", "RAM": "0.05 GB observed" },
+      note: "Admin-capable, shared development login over plain HTTP, so loopback only: reach it through an ssh tunnel.",
+      leftNote: "The testbed still publishes 0.0.0.0:18080 until the new compose is applied there (unverified 2026-11-27)." },
 
     // App
     { id: "postgres", name: "zbxai_postgres", zone: "app", kind: "svc", status: "built",
@@ -79,23 +77,11 @@ window.TOPOLOGY = {
       detail: { Listens: "10051 (trapper)", Published: "none (D13)", Volumes: "none", "RAM": "1.0 GB estimate" },
       note: "On model too, to health-check llama.",
       leftNote: "Compose attaches it to app only. The target adds model, so the health check of llama cannot run yet." },
-    { id: "receiver", name: "zbxai_receiver", zone: "app", kind: "svc", status: "planned",
-      sub: "Webhook receiver · :8000",
-      nets: { target: ["app"], built: [] },
-      detail: { Listens: "8000", Published: "none", Volumes: "none", "RAM": "0.2 GB estimate" },
-      note: "Takes problem events from the Zabbix webhook media type (POST /v1/events). Code written and unit-tested (src/zbxai/receiver.py), no container, no webhook." },
-    { id: "worker", name: "zbxai_worker", zone: "app", kind: "svc", status: "planned",
-      sub: "Analysis worker · one call at a time",
+    { id: "agent", name: "zbxai_agent", zone: "app", kind: "svc", status: "planned",
+      sub: "Receiver and worker modules · :8000",
       nets: { target: ["app", "model"], built: [] },
-      detail: { Listens: "none", Published: "none", Volumes: "none", "RAM": "0.3 GB estimate" },
-      note: "Calls the bounded Zabbix client in-process and llama once per analysis. Code written and unit-tested (src/zbxai/worker.py, pipeline.py), no container." },
-    { id: "mcp", name: "zbxai_mcp", zone: "app", kind: "svc", status: "built",
-      sub: "Zabbix MCP server · :8443/mcp (official image, interim)",
-      nets: { target: ["app"], built: ["app"] },
-      observed: "running 2026-11-26: 4 tools exposed, write tools denied in its log, 401 without a token; no token made yet, so no authenticated call",
-      detail: { Listens: "8443 at /mcp (streamable HTTP; D7's custom server was planned for 8001)", Published: "none", Volumes: "none", "RAM": "0.1 GB estimate, not measured" },
-      note: "The model's only path to Zabbix (D7); called only when model lookups are enabled (off by default).",
-      leftNote: "Interim official image (D17), read-only by allow/deny list only. The thin custom server of D7 is still the target." },
+      detail: { Listens: "8000 (receiver)", Published: "none", Volumes: "none", "RAM": "0.5 GB estimate (0.2 receiver, 0.3 worker)" },
+      note: "One service (D19). The receiver takes problem events from the Zabbix webhook media type (POST /v1/events); the worker calls the bounded Zabbix client in-process and llama once per analysis. Code written and unit-tested (src/zbxai/receiver.py, worker.py, pipeline.py), no container, no webhook." },
     { id: "disk_reporter", name: "zbxai_disk_reporter", zone: "app", kind: "svc", status: "planned",
       sub: "Reports host disk to Zabbix",
       nets: { target: ["app"], built: [] },
@@ -118,7 +104,7 @@ window.TOPOLOGY = {
       subTarget: "llama-server · Llama 3.1 8B (3.2 3B for rehearsal) · :8080",
       nets: { target: ["model"], built: ["model"] },
       observed: "3B answered one short prompt 2026-11-23",
-      detail: { Listens: "8080", Published: "none (reached through edge)", Volumes: "zbxai_models (read-only)", "RAM": "target 6.0 GB (8B); the 3B was observed at 1.8 GB (4k context) and 6.3 GB after a 12.5k prompt (32k context)" },
+      detail: { Listens: "8080", Published: "none (internal network only)", Volumes: "zbxai_models (read-only)", "RAM": "target 6.0 GB (8B); the 3B was observed at 1.8 GB (4k context) and 6.3 GB after a 12.5k prompt (32k context)" },
       note: "--parallel 1: one model call at a time.",
       leftNote: "Runs the 3B model. The 8B and the real prompt size are not benchmarked (backlog model-benchmark)." },
 
@@ -138,8 +124,6 @@ window.TOPOLOGY = {
     // Volumes
     { id: "v_models", name: "zbxai_models", zone: "vol", kind: "vol", status: "built",
       sub: "Model files, read-only in llama", detail: { Used_by: "llama (ro), fetch_model (rw)" } },
-    { id: "v_edge", name: "zbxai_edge_conf", zone: "vol", kind: "vol", status: "built",
-      sub: "Rendered nginx config", detail: { Used_by: "edge (ro)" } },
     { id: "v_pg", name: "zbxai_pgdata", zone: "vol", kind: "vol", status: "built",
       sub: "PostgreSQL data", detail: { Used_by: "postgres" } },
     { id: "v_grafana", name: "zbxai_grafana", zone: "vol", kind: "vol", status: "built",
@@ -151,19 +135,16 @@ window.TOPOLOGY = {
   /* status: "built" or "planned" (left panel). `to: []` = host level, no line drawn. */
   flows: [
     { id: "f1", from: ["people"], to: ["grafana"], proto: "HTTP 13000", net: "LAN, front", purpose: "The only notification surface", status: "built", observed: "reached from the workstation 2026-11-24; stopped since, not answering 2026-11-26" },
-    { id: "f2", from: ["people"], to: ["zabbix_web"], proto: "HTTP 18080", net: "LAN, front", purpose: "Zabbix frontend (D16)", status: "built", observed: "reached from the workstation 2026-11-24; started again 2026-11-26, not re-reached from the workstation" },
-    { id: "f3", from: ["people"], to: ["edge"], proto: "HTTP 18081, key or login", net: "LAN, front", purpose: "Remote chat and web UI for the model (D15)", status: "built" },
-    { id: "f4", from: ["edge"], to: ["llama"], proto: "HTTP 8080", net: "model", purpose: "Forwards authenticated requests", status: "built" },
+    { id: "f2", from: ["people"], to: ["zabbix_web"], proto: "HTTP 18080 through an ssh tunnel", net: "ssh, front", purpose: "Zabbix frontend, fallback view and administration (D16 amended by D19)", status: "built", observed: "reached from the workstation across the LAN 2026-11-24 when it was published on 0.0.0.0; loopback only once the new compose is applied" },
     { id: "f5", from: ["zabbix_server"], to: ["postgres"], proto: "PostgreSQL 5432", net: "app", purpose: "Zabbix history and configuration", status: "built" },
     { id: "f6", from: ["zabbix_web"], to: ["postgres", "zabbix_server"], proto: "5432, 10051", net: "app", purpose: "Frontend", status: "built" },
     { id: "f7", from: ["grafana"], to: ["zabbix_web"], proto: "JSON-RPC, read-only token", net: "app", purpose: "Problems view, trends", status: "planned" },
     { id: "f8", from: ["grafana"], to: ["postgres"], proto: "PostgreSQL as zbxai_grafana_ro", net: "app", purpose: "AI-analyses table (SELECT-only)", status: "planned" },
-    { id: "f9", from: ["zabbix_server"], to: ["receiver"], proto: "HTTP POST /v1/events, 8000", net: "app", purpose: "Problem events to the agent (webhook)", status: "planned" },
-    { id: "f10", from: ["receiver", "worker"], to: ["postgres"], proto: "PostgreSQL as zbxai_agent_rw", net: "app", purpose: "Queue and analyses", status: "planned" },
-    { id: "f11", from: ["worker"], to: ["zabbix_web"], proto: "JSON-RPC, read-only token", net: "app", purpose: "Bounded context reads", status: "planned" },
-    { id: "f12", from: ["worker"], to: ["llama"], proto: "HTTP /v1/chat/completions, 8080", net: "model", purpose: "One analysis call at a time", status: "planned" },
-    { id: "f13", from: ["mcp"], to: ["zabbix_web"], proto: "JSON-RPC, read-only token", net: "app", purpose: "Model-driven lookups when enabled", status: "built", observed: "the MCP server is configured for this URL; no token, so no call made 2026-11-26" },
-    { id: "f14", from: ["zabbix_server"], to: ["receiver", "grafana", "llama"], proto: "HTTP GET health endpoints", net: "app, model", purpose: "Self-monitoring (needs zabbix_server on model)", status: "planned" },
+    { id: "f9", from: ["zabbix_server"], to: ["agent"], proto: "HTTP POST /v1/events, 8000", net: "app", purpose: "Problem events to the agent (webhook)", status: "planned" },
+    { id: "f10", from: ["agent"], to: ["postgres"], proto: "PostgreSQL as zbxai_agent_rw", net: "app", purpose: "Queue and analyses", status: "planned" },
+    { id: "f11", from: ["agent"], to: ["zabbix_web"], proto: "JSON-RPC, read-only token", net: "app", purpose: "Bounded context reads", status: "planned" },
+    { id: "f12", from: ["agent"], to: ["llama"], proto: "HTTP /v1/chat/completions, 8080", net: "model", purpose: "One analysis call at a time", status: "planned" },
+    { id: "f14", from: ["zabbix_server"], to: ["agent", "grafana", "llama"], proto: "HTTP GET health endpoints", net: "app, model", purpose: "Self-monitoring (needs zabbix_server on model)", status: "planned" },
     { id: "f15", from: ["loadgen", "disk_reporter"], to: ["zabbix_server"], proto: "Zabbix trapper 10051", net: "app", purpose: "Simulated and measured values", status: "planned" },
     { id: "f16", from: ["workstation"], to: [], proto: "ssh 22", net: "LAN", purpose: "Docker CLI and test streams to the testbed host", status: "built" }
   ]

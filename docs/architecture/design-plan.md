@@ -69,8 +69,8 @@ These are rehearsal targets: they show the design works and what it costs, and a
 | Build cost | Low | Low to medium | High |
 | Fit to owner | Poor | Good: uses the stack as declared | Overbuilt for v1 |
 
-**Pick B**, with a small scheduled sweep added later (section 7) for items that have no trigger. C is the growth path if
-Zabbix's own functions prove too coarse.
+**Pick B.** C is the growth path if Zabbix's own functions prove too coarse. A scheduled statistical sweep of items with no
+trigger was dropped ([D19](../decisions/d19-scope-cut-after-full-review.md)): detection stays inside Zabbix.
 
 ## 5. Components
 Role of each piece; the flow is in the [overview](overview.md).
@@ -79,14 +79,16 @@ Role of each piece; the flow is in the [overview](overview.md).
 | Zabbix server, web, PostgreSQL | Collect, store, detect, raise problems | Official images; Zabbix 8.0 LTS, falling back to 7.0 if the 8.0 tags are not there |
 | Grafana | The monitoring UI and the only notification surface: problems view, trend dashboards, an AI-analyses table | Section 6a; read-only |
 | Zabbix action to the agent | Posts each problem event to the agent's receiver | Custom webhook media type (JavaScript), to the receiver on the Docker network |
-| Receiver and queue | Authenticates, validates, dedupes, queues events | Bounded queue; drops are counted, never silent |
+| Receiver and queue | Authenticates, validates, dedupes, queues events | Bounded queue; drops are counted, never silent; one agent service with the worker |
 | Analysis worker | One problem at a time through the pipeline (section 8) | Single lane, because inference is CPU-bound |
-| MCP server (read-only) | The only path from the model to Zabbix | Section 6 |
+| MCP server (read-only), gated | The only path from the model to Zabbix, if model lookups are ever enabled | Section 6; not built, none runs ([D19](../decisions/d19-scope-cut-after-full-review.md)) |
 | Model runtime | llama.cpp `llama-server` serving Llama over a local OpenAI-compatible API | Section 9; internal-only Docker network |
 | Analysis store | Analyses, dedupe keys, cooldowns, queue | A separate database in the existing PostgreSQL instance (proposal); the agent has read-write, Grafana a SELECT-only role |
 | Self-monitoring | Zabbix watches the agent's, model's and Grafana's health and queue depth | The monitor must not depend on the thing it monitors |
 
-## 6. The MCP server: build a thin one (proposal)
+## 6. The MCP server: build a thin one, only if tool calls prove reliable (proposal, gated)
+**Gated by [D19](../decisions/d19-scope-cut-after-full-review.md):** the model's tool calls are unproven and off; no MCP server runs (the interim official server was removed from the repo); this server is built (Task 2.4) only if the benchmark shows at least 9 of 10 valid tool calls. Until then the code gathers all context and the model gets no tools (section 8).
+
 | | Official `zabbix-mcp-server` | Thin custom server |
 |---|---|---|
 | Tools exposed | Wide API surface; restricted by allow and deny lists | A handful of purpose-built tools |
@@ -135,16 +137,14 @@ Zabbix detects; the model never decides whether something is wrong.
 - **History needed:** forecasts need trend data covering their window, and seasonal baselines need several seasons
   (minimum unverified). The "1 h ahead" target cannot be demonstrated on a fresh Zabbix; early demonstrations use
   seeded faults, and seasonal detection waits for history.
-- **Sweep (phase 3):** a scheduled job reads trends for items with no trigger and flags slope changes with simple
-  statistics, so coverage grows without new triggers. It feeds the same pipeline.
 
 ## 8. Analysis pipeline (fixed, not an open agent loop; proposal)
 Tool-calling is unproven for this model and runtime, so the code drives and the model only reasons.
 1. **Receive** a problem event; validate it against a schema; drop or merge a duplicate (same trigger and host).
-2. **Gather** context with a fixed set of reads through the same bounded Zabbix client the MCP tools wrap (the worker calls it in-process; the MCP server is the model's only path and is used only when model lookups are enabled): the trigger, the item's recent history, other
-   open problems on the host and on related hosts, and similar past analyses.
-3. **Ask** the model once, with the gathered facts and a short instruction. Extra bounded lookups by the model are off by
-   default; they are enabled only after the benchmark shows tool calls are reliable for the chosen model and runtime.
+2. **Gather** context with a fixed set of reads through the bounded Zabbix client (the worker calls it in-process): the trigger, the item's recent history, and other
+   open problems on the host and on related hosts.
+3. **Ask** the model once, with the gathered facts and a short instruction. Extra bounded lookups by the model are off and not built;
+   they would be enabled only after the benchmark shows at least 9 of 10 valid tool calls for the chosen model and runtime (section 6, D19).
 4. **Validate** the answer against a schema: severity view, ranked hypotheses, the evidence each rests on, suggested
    checks, confidence. Reject and retry once; then store "no analysis available".
 5. **Store** the validated analysis with the Zabbix event ID. Grafana shows it beside the problem. A link to the Zabbix
@@ -176,8 +176,8 @@ hypothesis with no cited evidence is dropped before it is stored.
   and the model. The analysis arrives later in an AI-analyses table beside it. A problem display never waits on the model.
 - **Known limit, accepted by the owner:** this is pull. Nobody is told anything unless they are looking, so early warning
   only helps if someone watches Grafana. Push (chat, email, SMS, paging) is not designed; adding it later needs a new
-  decision, and Grafana alerting would break the single-engine rule. Zabbix web remains a fallback view.
-- **Noise control:** dedupe, per-host cooldown and burst grouping apply to analyses; a daily digest panel in phase 3.
+  decision, and Grafana alerting would break the single-engine rule. Zabbix web remains a fallback view (through an ssh tunnel).
+- **Noise control:** dedupe, per-host cooldown and burst grouping apply to analyses. A daily digest panel was dropped ([D19](../decisions/d19-scope-cut-after-full-review.md)).
 - **Message content:** the data stays in-network, so detail is a readability choice. Default: host and service names,
   numbers and the evidence cited; short log excerpts only if the owner wants them. All text is escaped when shown.
 
@@ -187,7 +187,7 @@ reach and only shape the estimate. Assume 100 items per module at a 60 s interva
 second (NVPS), tested at 3 times that. Zabbix load, database growth and the scale test derive from it.
 
 Budget, **estimates not measurements**, for the rehearsal: Zabbix plus PostgreSQL 2 to 3 GB RAM, model about 6 GB with its
-cache, agent and MCP under 1 GB, Grafana a few hundred MB (footprint not found); roughly 10 to 11 of 15 GiB. The analysis
+cache, the agent under 1 GB, Grafana a few hundred MB (footprint not found); roughly 10 to 11 of 15 GiB. The analysis
 store lives in the existing PostgreSQL instance to avoid another container; the coupling is acceptable for a rehearsal, and
 a real target can separate it. Disk is the tighter limit: history and trends need retention and housekeeping from the start.
 
@@ -229,8 +229,8 @@ a real target can separate it. Disk is the tighter limit: history and trends nee
 
 ## 14. Phasing (detail lives in the implementation plan)
 1. Zabbix up in Docker on its own network; templates and triggers; Grafana with the Zabbix data source and problems view.
-2. `llama-bench`; receiver, MCP server, analysis pipeline, analysis store, and the AI-analyses table in Grafana.
-3. Sweep, digest, scale test, failure drills.
+2. `llama-bench`; receiver, analysis pipeline, analysis store, and the AI-analyses table in Grafana. The MCP server only if the tool-call gate passes (section 6).
+3. Scale test, failure drills, self-monitoring.
 4. Packaging for the real target: compose files with the model, runtime, database and ports as config and no testbed paths,
    plus a sizing rule from the measured NVPS and token rates.
 
@@ -239,7 +239,7 @@ See [decisions](../decisions/README.md). Still needed from the owner: approval o
 before the implementation plan names paths. Optional: Q13 (real target hardware, GPU or not, and real per-module numbers).
 
 ## 16. Calls the agent made, for the owner to check
-Detection split (D6); thin MCP server (D7); the Grafana-only notification mechanism, that is the analysis store read by a
+Detection split (D6); thin MCP server, now gated (D7, D19); the Grafana-only notification mechanism, that is the analysis store read by a
 SELECT-only PostgreSQL data source (D8); the store in the existing PostgreSQL instance; dashboards provisioned from files;
 Zabbix as the single alert engine and a separate read-only Grafana token (D11); SQLite for Grafana in the rehearsal; the
 proposed numeric targets in section 1; the default lead time and disk thresholds; the fixed pipeline over an open agent

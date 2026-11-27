@@ -1,7 +1,7 @@
 # Zabbix Agent — Knowledge Base
 
 Docs-only knowledge base for a **local-host Zabbix AI agent** that analyses Zabbix trends and detects issues
-early, so they can be prevented. Status: **planning**. The design plan is approved and the implementation plan is written for review; only part is built: the llama slice, a Zabbix and MCP slice on the testbed, and Task 2.0 of the agent (settings); see [testbed](docs/operations/testbed.md).
+early, so they can be prevented. Status: **planning**. The design plan is approved and the implementation plan is written for review; only part is built: the llama slice and a Zabbix, PostgreSQL and Grafana slice on the testbed, and the agent's core code (unit-tested, not deployed); the scope was cut on 2026-11-27 ([D19](docs/decisions/d19-scope-cut-after-full-review.md)); see [testbed](docs/operations/testbed.md).
 
 Owner: chiajun. Created: 2026-11-23. The owner's requirements are recorded in this KB; there is no separate source brief.
 
@@ -21,7 +21,7 @@ Owner: chiajun. Created: 2026-11-23. The owner's requirements are recorded in th
 - Notify users of any issue through a medium: Grafana, chosen by the owner ([D8](docs/decisions/d8-grafana-only-notification.md)).
 
 ## Declared stack
-Llama (model, on llama.cpp), Zabbix (monitoring source), MCP (tool protocol), Grafana (monitoring UI and notification). Target OS: AlmaLinux 9.x.
+Llama (model, on llama.cpp), Zabbix (monitoring source), Grafana (monitoring UI and notification); MCP (tool protocol) is declared but gated, none runs ([D7](docs/decisions/d7-thin-readonly-mcp-server.md), [D19](docs/decisions/d19-scope-cut-after-full-review.md)). Target OS: AlmaLinux 9.x.
 
 ## What this is NOT
 - Not code: this KB holds docs only. The code repository location is undecided.
@@ -34,8 +34,8 @@ Llama (model, on llama.cpp), Zabbix (monitoring source), MCP (tool protocol), Gr
   stack runs there yet, and anything marked *unverified* was not observed.
 - Not built: the design plan is approved, the [topology](docs/architecture/topology.md) is written, and the
   [implementation plan](docs/development/implementation-plan/index.md) awaits review. The agent's receiver, worker,
-  pipeline, clients and store exist as unit-tested code in the code root (2026-11-26), not deployed; the MCP server,
-  the webhook and the provisioning are not written.
+  pipeline, clients and store exist as unit-tested code in the code root (2026-11-26), not deployed; the webhook
+  and the provisioning are not written, and no MCP server is planned until tool calls prove reliable ([D7](docs/decisions/d7-thin-readonly-mcp-server.md)).
 
 ## Rulebook
 Agent behaviour follows `/unified/user/cj/general_kb/agent-behavior/` (see [decision D5](docs/decisions/d5-kb-location-and-layout.md)).

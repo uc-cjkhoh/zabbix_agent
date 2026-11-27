@@ -1,6 +1,6 @@
 ---
 title: Implementation plan - Phase 2a agent core
-description: Scaffold, models, analysis store, bounded Zabbix client and the six-tool MCP server
+description: Scaffold, models, analysis store, bounded Zabbix client; the six-tool MCP server (Task 2.4) is gated and not planned
 components: []
 ---
 
@@ -11,7 +11,7 @@ ends with a commit step (ask first, Q7).
 
 ### Task 2.0: Scaffold and settings
 
-**Status 2026-11-26: done** (14 unit tests pass in a container, `ruff check` clean; not committed, the codebase is not a git repo). Choices made: field mapping is the lowercase env key with `_FILE` dropped for secrets (`ZBX_TOKEN_FILE` gives `zbx_token`); required keys are `ZBX_URL`, `ZBX_TOKEN_FILE`, `PG_DSN_FILE`, `LLAMA_URL`, `RECEIVER_TOKEN_FILE`; `LLM_TIMEOUT_S` defaults to 300 s (the agent's own choice: a 12.5k-token prompt took 283 s on the 3B model, the real prompt is about 1.5k tokens; revisit after the benchmark); URLs must start with `http://` or `https://`; no `pydantic-settings`, a frozen pydantic model with `hide_input_in_errors`; errors name variables only. The `runtime` target copies `src/` and sets `PYTHONPATH=/app/src:/app` (image `zbxai_runtime:dev`, imports offline as uid 10001). **Open:** step 3's "confirm the `mcp` SDK's current server API against its docs before Task 2.4": only the names were checked (`mcp.server.fastmcp.FastMCP` and `mcp.client.streamable_http.streamablehttp_client` import in `mcp` 1.30.0, offline); the SDK's documentation was not read. Do it at the start of Task 2.4.
+**Status 2026-11-26: done** (14 unit tests pass in a container, `ruff check` clean; not committed, the codebase is not a git repo). Choices made: field mapping is the lowercase env key with `_FILE` dropped for secrets (`ZBX_TOKEN_FILE` gives `zbx_token`); required keys are `ZBX_URL`, `ZBX_TOKEN_FILE`, `PG_DSN_FILE`, `LLAMA_URL`, `RECEIVER_TOKEN_FILE`; `LLM_TIMEOUT_S` defaults to 300 s (the agent's own choice: a 12.5k-token prompt took 283 s on the 3B model, the real prompt is about 1.5k tokens; revisit after the benchmark); URLs must start with `http://` or `https://`; no `pydantic-settings`, a frozen pydantic model with `hide_input_in_errors`; errors name variables only. The `runtime` target copies `src/` and sets `PYTHONPATH=/app/src:/app` (image `zbxai_runtime:dev`, imports offline as uid 10001). The `ENABLE_MODEL_LOOKUPS` setting and the unused `mcp` dependency were removed ([D19](/unified/user/cj/ai_agent/zabbix_agent/kb/docs/decisions/d19-scope-cut-after-full-review.md)); if Task 2.4 is ever built, add the dependency back and read the SDK's documentation first.
 
 **Files:**
 - Create: `/unified/user/cj/ai_agent/zabbix_agent/codebase/src/zbxai/__init__.py`; extend `/unified/user/cj/ai_agent/zabbix_agent/codebase/pyproject.toml` with the agent's dependencies, copy `/unified/user/cj/ai_agent/zabbix_agent/codebase/src/` into the `runtime` target of `/unified/user/cj/ai_agent/zabbix_agent/codebase/Dockerfile` (created in Task 1.1) and regenerate `/unified/user/cj/ai_agent/zabbix_agent/codebase/requirements.lock` in a container, `/unified/user/cj/ai_agent/zabbix_agent/codebase/src/zbxai/config.py`
@@ -21,13 +21,12 @@ ends with a commit step (ask first, Q7).
 - Produces: `Settings` (frozen pydantic model; secrets are `SecretStr`); `load_settings(env: Mapping[str, str]) -> Settings`.
   A secret is read from the file named by `<NAME>_FILE`. Keys: `ZBX_URL`, `ZBX_TOKEN_FILE`, `PG_DSN_FILE`, `LLAMA_URL`,
   `RECEIVER_TOKEN_FILE`, `QUEUE_CAP` (default 200), `MAX_ROWS` (default 200), `MAX_WINDOW_S` (default 604800),
-  `ENABLE_MODEL_LOOKUPS` (default `False`), `LLM_TIMEOUT_S`.
+  `LLM_TIMEOUT_S`.
 
 - [ ] **Step 1: Write failing tests:** `test_settings_reads_secret_from_file`, `test_settings_repr_hides_secrets` (neither `repr` nor
-  `str` contains the secret), `test_missing_required_setting_names_key_only` (the error names the variable, never a value),
-  `test_model_lookups_default_off`.
+  `str` contains the secret), `test_missing_required_setting_names_key_only` (the error names the variable, never a value).
 - [ ] **Step 2: Run, expecting FAIL. Step 3: Implement.** The `runtime` target (a minimal one exists from Task 1.1) of `/unified/user/cj/ai_agent/zabbix_agent/codebase/Dockerfile` is `python:3.12-slim` taken from `PYTHON_TAG@PYTHON_DIGEST` through a build ARG, dependencies installed from `/unified/user/cj/ai_agent/zabbix_agent/codebase/requirements.lock` with `--require-hashes`, a non-root
-  user, no build tools in the final image, `TZ=UTC`, and no `CMD` (each service sets its own command, contract R10). Confirm the `mcp` SDK's current server API against its docs before Task 2.4.
+  user, no build tools in the final image, `TZ=UTC`, and no `CMD` (each service sets its own command, contract R10).
 - [ ] **Step 4: Run, expecting PASS.**
 
 ### Task 2.1: Domain models and event validation
@@ -78,7 +77,7 @@ ends with a commit step (ask first, Q7).
 
 ### Task 2.3: Bounded, read-only Zabbix client
 
-**Status 2026-11-26: done against mocks** (code `src/zbxai/zabbix_client.py`, tests pass with `httpx.MockTransport`). The request and response shapes follow the Zabbix API documentation and have **not** been seen against the running Zabbix 8.0.0: *unverified*; no read-only token exists yet (Task 1.3 is not built). Choices made: `base_url` is the full endpoint (as in `ZBX_URL`); `event()` makes two calls (`event.get`, then `trigger.get` with `selectItems`) so that `EventDetail.items` carries the item ids that `series()` needs; `series("history")` first reads the item's `value_type`; ids must be digits only; `ping()` (one `host.get`, limit 1) serves the health check; `ZabbixBadResponse` is a subclass of `ZabbixUnavailable`.
+**Status 2026-11-26: done against mocks** (code `src/zbxai/zabbix_client.py`, tests pass with `httpx.MockTransport`). The request and response shapes follow the Zabbix API documentation and have **not** been seen against the running Zabbix 8.0.0: *unverified*; no read-only token exists yet (Task 1.3 is not built). Choices made: `base_url` is the full endpoint (as in `ZBX_URL`); `event()` makes two calls (`event.get`, then `trigger.get` with `selectItems`) so that `EventDetail.items` carries the item ids that `series()` needs; `series()` (history only, no `kind`; the trend branch was removed in D19) first reads the item's `value_type`; ids must be digits only; `ping()` (one `host.get`, limit 1) serves the health check; `ZabbixBadResponse` is a subclass of `ZabbixUnavailable`.
 
 **Files:**
 - Create: `/unified/user/cj/ai_agent/zabbix_agent/codebase/src/zbxai/zabbix_client.py`
@@ -86,8 +85,8 @@ ends with a commit step (ask first, Q7).
 
 **Interfaces:**
 - Produces: `ZabbixClient(base_url: str, token: SecretStr, *, max_rows: int = 200, max_window_s: int = 604800, http: httpx.Client | None = None)`;
-  `problems(host_id: str | None, limit: int, since_s: int) -> Page[Problem]`; `event(event_id: str) -> EventDetail`;
-  `series(item_id: str, kind: Literal["history","trend"], window_s: int, limit: int) -> Page[Point]`;
+  `problems(host_id: str, limit: int, since_s: int) -> Page[Problem]`; `event(event_id: str) -> EventDetail`;
+  `series(item_id: str, window_s: int, limit: int) -> Page[Point]` (history points);
   `host_overview(host_id: str) -> HostOverview`; `related_problems(host_id: str, limit: int) -> Page[Problem]`;
   `Page(rows: list, truncated: bool)`; errors `BoundsError`, `ForbiddenMethod`, `ZabbixUnavailable`. Only API methods ending in `.get`
   are ever sent; the token travels in the `Authorization: Bearer` header.
@@ -99,7 +98,9 @@ ends with a commit step (ask first, Q7).
 - [ ] **Step 2: Run, expecting FAIL. Step 3: Implement** with one private `_call(method, params)` that enforces the `.get` rule.
   **Step 4: Run, expecting PASS.**
 
-### Task 2.4: MCP server with six read-only tools
+### Task 2.4: MCP server with six read-only tools (gated; not planned)
+
+**Gate ([D7](/unified/user/cj/ai_agent/zabbix_agent/kb/docs/decisions/d7-thin-readonly-mcp-server.md), [D19](/unified/user/cj/ai_agent/zabbix_agent/kb/docs/decisions/d19-scope-cut-after-full-review.md)):** model tool calls are unproven and off; no MCP server runs and the code drives the whole flow. Build this task only if the server probes of Task 2.5 show at least 9 of 10 valid tool calls (the probe tooling itself is not planned). Until then nothing below is a to-do.
 
 **Files:**
 - Create: `/unified/user/cj/ai_agent/zabbix_agent/codebase/src/zbxai/mcp_server.py`
@@ -108,8 +109,8 @@ ends with a commit step (ask first, Q7).
 **Interfaces:**
 - Consumes: `ZabbixClient` (Task 2.3).
 - Produces: `build_server(zbx: ZabbixClient, status: Callable[[], dict]) -> FastMCP` (the SDK's server class) with exactly these tools:
-  `get_active_problems(host_id: str | None, limit: int, since_s: int)`, `get_event(event_id: str)`,
-  `get_item_series(item_id: str, kind: str, window_s: int, limit: int)`, `get_host_overview(host_id: str)`,
+  `get_active_problems(host_id: str, limit: int, since_s: int)`, `get_event(event_id: str)`,
+  `get_item_series(item_id: str, window_s: int, limit: int)`, `get_host_overview(host_id: str)`,
   `get_related_problems(host_id: str, limit: int)`, `get_agent_status()`. Served over streamable HTTP on the app network.
 
 - [ ] **Step 1: Write failing tests:** `test_tool_surface_is_exactly_six`, `test_every_numeric_input_has_minimum_and_maximum` (read each tool's

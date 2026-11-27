@@ -43,7 +43,7 @@ Global constraints and protocol: [index](/unified/user/cj/ai_agent/zabbix_agent/
 - [ ] **Step 2: Update `/unified/user/cj/ai_agent/zabbix_agent/kb/CLAUDE.md`** section 2 (code location), section 5 (build, run, test, deploy commands, how to stop a run safely), section 6
   (source layout) and the where-things-live table.
 - [ ] **Step 3: Remove** this plan's files and any verification or backlog entry that passed; list anything left open in the backlog.
-- [ ] **Step 4: Run** the KB check (recreate the lint script, or wire the `kb-lint-hook` backlog item, Q6) and confirm it reports no failures; run `command grep` for secrets across the KB and the
+- [ ] **Step 4: Run** `command grep` for secrets across the KB and the
   code repo (only git-ignored `*.local.md` may hold a credential).
 - [ ] **Step 5: One cold whole-branch review** by a fresh reviewer on the most capable model, given the diff and the design plan, not conclusions.
   Fix findings, then ask the owner before any merge (Q7).

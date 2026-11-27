@@ -7,7 +7,7 @@ components: []
 # Topology
 
 Detail behind the [overview](overview.md) and the [design plan](design-plan.md). It owns subnets and ports
-([D3](../decisions/d3-network-isolation.md)). **Status: designed; on the testbed exist the networks `zbxai_front`, `zbxai_model` and `zbxai_app`, the volumes `zbxai_models`, `zbxai_edge_conf`, `zbxai_pgdata`, `zbxai_grafana` and `zbxai_secrets`, and the containers `zbxai_llama` (3B model), `zbxai_edge`, `zbxai_postgres`, `zbxai_zabbix_server`, `zbxai_zabbix_web` and `zbxai_grafana`, see [testbed](../operations/testbed.md). Checked 2026-11-26: after a pause since 2026-11-24, `zbxai_postgres`, `zbxai_zabbix_server` and `zbxai_zabbix_web` were started again at the owner's request and a new `zbxai_mcp` (the official Zabbix MCP server, [D17](../decisions/d17-official-zabbix-mcp-server-as-interim.md)) was added on `zbxai_app`; `zbxai_grafana` is still stopped (not removed, volume kept), so port 13000 does not answer; nothing else is created (no receiver, worker, custom MCP server, tools or test networks). Code for the receiver, worker, pipeline, clients and store exists in the code root but is not deployed.** A side-by-side picture of the built and target topology is in the [viewer](../topology/index.html); keep its `topology-data.js` in step with this file. Observed facts come from the
+([D3](../decisions/d3-network-isolation.md)). **Status: designed; on the testbed exist the networks `zbxai_front`, `zbxai_model` and `zbxai_app`, the volumes `zbxai_models`, `zbxai_pgdata`, `zbxai_grafana` and `zbxai_secrets`, and the containers `zbxai_llama` (3B model), `zbxai_postgres`, `zbxai_zabbix_server`, `zbxai_zabbix_web` and `zbxai_grafana`, see [testbed](../operations/testbed.md). Checked 2026-11-26: after a pause since 2026-11-24, `zbxai_postgres`, `zbxai_zabbix_server` and `zbxai_zabbix_web` were started again at the owner's request; `zbxai_grafana` is still stopped (not removed, volume kept), so port 13000 does not answer; nothing else is created (no receiver, worker, tools or test networks). Code for the receiver, worker, pipeline, clients and store exists in the code root but is not deployed. [D19](../decisions/d19-scope-cut-after-full-review.md) (2026-11-27) cut the edge proxy, the interim MCP server and the replay rig from this design; they are no longer defined in the repo, but the containers `zbxai_edge` and `zbxai_mcp` and the volumes `zbxai_edge_conf` and `zbxai_replay_data` were last recorded on the testbed on 2026-11-26 and stay there until the owner approves cleanup (*unverified* since).** A side-by-side picture of the built and target topology is in the [viewer](../topology/index.html); keep its `topology-data.js` in step with this file. Observed facts come from the
 [testbed survey](../operations/testbed.md); figures marked *estimate* are not measured; items marked *unverified* have a
 check in the [verification backlog](../development/backlog/design-verification.md).
 
@@ -29,22 +29,21 @@ check in the [verification backlog](../development/backlog/design-verification.m
 
 ## 2. Container and network topology
 ```
- LAN ─ Grafana :13000 ─┐  LAN ─ Zabbix web :18080 ─┐  LAN ─ Edge :18081 ─┐
-                       │                           │                     │
- ┌─ zbxai_front ───────┴───────────────────────────┴─────────────────────┴─────────────────┐
- │  zbxai_grafana :3000         zbxai_zabbix_web :8080    zbxai_edge :8080 (D15)           │
- │  172.30.60.0/24, NOT internal (egress possible)                                         │
- └──────┬──────────────────────────────────────────────────────────────┬───────────────────┘
-        │ (grafana, zabbix_web also on app)                            │
- ┌─ zbxai_app (172.30.61.0/24, internal: true) ────────────────────────┴────────────────────┐
- │  zbxai_postgres :5432     zbxai_zabbix_server :10051      zbxai_receiver :8000           │
- │  zbxai_mcp :8443          zbxai_worker                    zbxai_disk_reporter            │
- │  zbxai_loadgen / zbxai_fault_* (transient)                                               │
- └───────────────────────────────┬────────────────────────────────────┬─────────────────────┘
-                                 │ (worker, zabbix_server and zbxai_edge also on model)
- ┌─ zbxai_model (172.30.62.0/24, internal: true) ──────────────────────┴────────────────────┐
- │  zbxai_llama :8080  (llama-server, --parallel 1, model file in volume zbxai_models)      │
- │  zbxai_edge (on front too) forwards authenticated requests to llama :8080 (D15)          │
+ LAN ─ Grafana :13000 ─┐         ssh tunnel ─ Zabbix web 127.0.0.1:18080 ─┐
+                       │                                                  │
+ ┌─ zbxai_front ───────┴──────────────────────────────────────────────────┴─────────────────┐
+ │  zbxai_grafana :3000                          zbxai_zabbix_web :8080                      │
+ │  172.30.60.0/24, NOT internal (egress possible)                                           │
+ └──────┬─────────────────────────────────────────────────────────────────────────────────────┘
+        │ (grafana, zabbix_web also on app)
+ ┌─ zbxai_app (172.30.61.0/24, internal: true) ──────────────────────────────────────────────┐
+ │  zbxai_postgres :5432     zbxai_zabbix_server :10051      zbxai_agent :8000 (receiver and │
+ │  zbxai_disk_reporter      zbxai_loadgen / zbxai_fault_* (transient)       worker modules) │
+ └───────────────────────────────┬─────────────────────────────────────────────────────────────┘
+                                 │ (agent and zabbix_server also on model)
+ ┌─ zbxai_model (172.30.62.0/24, internal: true) ────────────────────────────────────────────┐
+ │  zbxai_llama :8080  (llama-server, --parallel 1, model file in volume zbxai_models)       │
+ │  reached only by zbxai_agent (analysis) and zbxai_zabbix_server (health check)            │
  └───────────────────────────────────────────────────────────────────────────────────────────┘
 
  transient:  zbxai_test (172.30.63.0/24, internal) = zbxai_pgtest + zbxai_test_run (integration tests; created and removed by `scripts/test-store.sh` for each run, none exists between runs)
@@ -54,9 +53,9 @@ check in the [verification backlog](../development/backlog/design-verification.m
 ## 3. Networks
 | Network | Subnet | Internal | Members | Purpose |
 |---|---|---|---|---|
-| `zbxai_front` | 172.30.60.0/24 | no | grafana, zabbix_web, edge, replay | Only path to published ports; the replay rig reaches `zabbix_web` and the edge `/health` here |
+| `zbxai_front` | 172.30.60.0/24 | no | grafana, zabbix_web | Only path to published ports (Grafana on the LAN, Zabbix web on host loopback) |
 | `zbxai_app` | 172.30.61.0/24 | yes | all services except llama | Service traffic; no egress |
-| `zbxai_model` | 172.30.62.0/24 | yes | llama, edge, worker, zabbix_server | Model traffic; no egress |
+| `zbxai_model` | 172.30.62.0/24 | yes | llama, agent, zabbix_server | Model traffic; no egress |
 | `zbxai_test` | 172.30.63.0/24 | yes | pgtest, test_run | Throwaway test runs |
 | `zbxai_setup` | 172.30.64.0/24 | no | the model download container and the lock-file container (`zbxai_lock_<pid>`, `scripts/lock.sh`) | Setup downloads only |
 
@@ -69,7 +68,7 @@ check in the [verification backlog](../development/backlog/design-verification.m
   `ZBXAI_USED_RANGES`. `deploy.sh` also compares against the live `docker network ls` subnets at deploy time.
 - **Honest gap:** Grafana and Zabbix web are on `zbxai_front`, so they can reach out. Nothing depends on that at run time
   and nothing enforces it. Every other container is on internal networks only; the egress check proves it.
-- **Verified (2026-11-24):** published ports work on containers attached to both `front` and `app` (Zabbix web 18080 and Grafana 13000 reached from the workstation).
+- **Verified (2026-11-24):** published ports work on containers attached to both `front` and `app` (Zabbix web 18080 and Grafana 13000 reached from the workstation; Zabbix web has been loopback-only in the compose file since D19).
 
 ## 4. Containers
 All names start with `zbxai_`. Image tags and digests are fixed in `versions.env` (Task 0.2). RAM figures are *estimates*.
@@ -78,14 +77,10 @@ All names start with `zbxai_`. Image tags and digests are fixed in `versions.env
 |---|---|---|---|---|---|
 | `zbxai_postgres` | app | 5432 | none | `zbxai_pgdata`, `zbxai_secrets/pg` | 0.16 GB observed idle |
 | `zbxai_zabbix_server` | app, model | 10051 (trapper) | none | none | 1.0 GB |
-| `zbxai_zabbix_web` | front, app | 8080 (observed) | 0.0.0.0:18080 ([D16](../decisions/d16-zabbix-web-and-grafana-on-lan-with-shared-login.md); first planned as 127.0.0.1) | none (reads `zbxai_secrets/zabbix`) | 0.05 GB observed |
+| `zbxai_zabbix_web` | front, app | 8080 (observed) | 127.0.0.1:18080, host loopback only ([D16](../decisions/d16-zabbix-web-and-grafana-on-lan-with-shared-login.md) amended by [D19](../decisions/d19-scope-cut-after-full-review.md); the testbed still publishes 0.0.0.0:18080 until the new compose is applied, *unverified* 2026-11-27) | none (reads `zbxai_secrets/zabbix`) | 0.05 GB observed |
 | `zbxai_grafana` | front, app | 3000 | 0.0.0.0:13000 (D16; first planned as the LAN address) | `zbxai_grafana`, `zbxai_secrets/grafana` | 0.17 GB observed |
-| `zbxai_receiver` | app | 8000 | none | none | 0.2 GB |
-| `zbxai_worker` | app, model | none | none | none | 0.3 GB |
-| `zbxai_mcp` | app | 8443 at `/mcp` (streamable HTTP; the official image, interim, [D17](../decisions/d17-official-zabbix-mcp-server-as-interim.md); D7's custom server was planned for 8001) | none | none | 0.1 GB estimate; 5 MiB observed idle |
+| `zbxai_agent` (receiver and worker modules, one service, [D19](../decisions/d19-scope-cut-after-full-review.md)) | app, model | 8000 (receiver) | none | none | 0.5 GB estimate (0.2 receiver, 0.3 worker) |
 | `zbxai_llama` | model | 8080 | none | `zbxai_models` (read-only) | 6.0 GB (8B); the 3B observed at 1.8 GB (4k context), 4.9 GB idle and 6.3 GB after a 12.5k prompt (32k context) |
-| `zbxai_edge` (nginx, [D15](../decisions/d15-llama-lan-access-through-authenticated-proxy.md)) | front, model | 8080 | 0.0.0.0:18081 (needs the API key except `/health`) | `zbxai_edge_conf` (read-only) | 0.02 GB, *estimate* |
-| `zbxai_replay` ([D18](../decisions/d18-log-replay-rig-on-the-real-zabbix.md), *built 2026-11-26, started only on request*) | front | 8090 (monitor page, read-only) | 0.0.0.0:18090 | `zbxai_replay_data` (read-only), `/unified/user/cj/data/replay_out` (run files), the push token file (read-only, once it exists) | 512 MB cap, 1 CPU cap; started by `scripts/replay.sh up`, not by compose |
 | `zbxai_disk_reporter` | app | none | none | none | 0.05 GB |
 | `zbxai_loadgen`, `zbxai_fault_*` | app | none | none | none | 0.4 GB |
 | `zbxai_pgtest`, `zbxai_test_run` | test | 5432 (pgtest) | none | none | 0.5 GB, transient; `pgtest` (512 MB limit) lives only during `scripts/test-store.sh` (first run 2026-11-26). Unit-test runs today are `zbxai_test_run_<pid>` on `--network none` (`scripts/ship-test.sh`), a different, simpler path |
@@ -93,8 +88,8 @@ All names start with `zbxai_`. Image tags and digests are fixed in `versions.env
 Also created, none long-lived: the volume `zbxai_secrets` (written by one-shot `zbxai_secrets_init`, read read-only by each service from its own
 sub-directory) and the one-shots `zbxai_migrate` and `zbxai_provision` (app network, removed after they finish; section 10).
 
-Total about 10 to 11 GB of 15 GiB, matching the design budget. The worker calls the bounded Zabbix client in-process;
-the MCP server is the model's only path to Zabbix and is called only when model lookups are enabled (off by default).
+Total about 10 to 11 GB of 15 GiB, matching the design budget. The agent calls the bounded Zabbix client in-process; the
+model gets no tools and no MCP server runs (D7 is gated, [D19](../decisions/d19-scope-cut-after-full-review.md)).
 
 ## 5. Data flows
 | From | To | Protocol and port | Network | Purpose |
@@ -102,20 +97,14 @@ the MCP server is the model's only path to Zabbix and is called only when model 
 | loadgen, fault reporters, disk reporter | zabbix_server | Zabbix trapper, 10051 | app | Simulated and measured values |
 | zabbix_server | postgres | PostgreSQL, 5432 | app | Zabbix history and configuration |
 | zabbix_web | postgres, zabbix_server | 5432, 10051 | app | Frontend |
-| zabbix_server (webhook media type) | receiver | HTTP POST `/v1/events`, 8000 | app | Problem events to the agent |
-| zabbix_server | receiver, grafana, llama | HTTP GET `/healthz`, `/api/health`, `/health` | app, model | Self-monitoring |
-| receiver, worker | postgres | PostgreSQL as `zbxai_agent_rw` | app | Queue and analyses |
-| worker | zabbix_web | Zabbix JSON-RPC `/api_jsonrpc.php`, read-only token | app | Bounded context reads |
-| worker | llama | HTTP `/v1/chat/completions`, 8080 | model | One analysis call at a time |
-| mcp | zabbix_web | JSON-RPC, read-only token | app | Model-driven lookups when enabled |
+| zabbix_server (webhook media type) | agent (receiver) | HTTP POST `/v1/events`, 8000 | app | Problem events to the agent |
+| zabbix_server | agent, grafana, llama | HTTP GET `/healthz`, `/api/health`, `/health` | app, model | Self-monitoring |
+| agent | postgres | PostgreSQL as `zbxai_agent_rw` | app | Queue and analyses |
+| agent (worker) | zabbix_web | Zabbix JSON-RPC `/api_jsonrpc.php`, read-only token | app | Bounded context reads |
+| agent (worker) | llama | HTTP `/v1/chat/completions`, 8080 | model | One analysis call at a time |
 | grafana | zabbix_web | JSON-RPC, its own read-only token | app | Problems view, trends |
 | grafana | postgres | PostgreSQL as `zbxai_grafana_ro` (SELECT-only) | app | AI-analyses table |
 | people | grafana | HTTP 13000 | LAN, front | The only notification surface |
-| replay (runs by `docker exec`) | zabbix_web | Zabbix JSON-RPC `history.push`, push-only token, batched per 100 ms tick | front | Replayed module log messages to the real Zabbix (D18; the objects exist on the real Zabbix since 2026-11-27; error messages also go to a second item that carries the trigger) |
-| replay | edge, zabbix_web | HTTP GET `/health`, `/` | front | Run guard probes |
-| people | replay | HTTP 18090 | LAN, front | Read-only monitor page of a replay |
-| people, tools | edge | HTTP 18081, bearer or basic auth | LAN, front | Remote chat and web UI for the model (D15; not part of the agent flow) |
-| edge | llama | HTTP 8080 | model | Forwards authenticated requests |
 | owner | zabbix_web | HTTP 18080 through an ssh tunnel | ssh, front | Fallback view and administration |
 | workstation | testbed | ssh 22 | LAN | Docker CLI and test streams |
 
@@ -123,8 +112,9 @@ Nothing leaves the network at run time ([D12](../decisions/d12-operational-data-
 model are downloaded at setup by the Docker daemon and the one-shot container on `zbxai_setup`.
 
 ## 6. Access
-- **Grafana** and **Zabbix web** are published on `0.0.0.0` (`ZBXAI_GRAFANA_BIND`, `ZBXAI_ZBXWEB_BIND`), ports 13000 and 18080, by owner decision ([D16](../decisions/d16-zabbix-web-and-grafana-on-lan-with-shared-login.md)), with one shared development login over plain HTTP. Zabbix web is admin-capable; the earlier plan kept it on loopback with an ssh tunnel (forward a local port to 127.0.0.1:18080 on the testbed), and that remains the way back: set `ZBXAI_ZBXWEB_BIND=127.0.0.1`. Both ports were reached from the workstation across the LAN with firewalld active (2026-11-24).
-- **Llama** is reachable on `http://<testbed>:18081` through the authenticated proxy only ([D15](../decisions/d15-llama-lan-access-through-authenticated-proxy.md)); the key is in the git-ignored `deploy/secrets/llama-api-key`. Plain HTTP; the llama container itself publishes nothing.
+- **Grafana** is published on `0.0.0.0` (`ZBXAI_GRAFANA_BIND`), port 13000, by owner decision ([D16](../decisions/d16-zabbix-web-and-grafana-on-lan-with-shared-login.md)), with one shared development login over plain HTTP. It was reached from the workstation across the LAN with firewalld active (2026-11-24).
+- **Zabbix web** is published on host loopback only, `127.0.0.1:18080` ([D16](../decisions/d16-zabbix-web-and-grafana-on-lan-with-shared-login.md) amended by [D19](../decisions/d19-scope-cut-after-full-review.md)): it is admin-capable, so reach it through an ssh tunnel (forward a local port to 127.0.0.1:18080 on the testbed). The testbed still publishes it on `0.0.0.0:18080` until the new compose file is applied there (*unverified* 2026-11-27).
+- **Llama** is not published; only the agent (analysis) and Zabbix server (health check) reach it, on the internal `zbxai_model` network. The LAN proxy was withdrawn ([D19](../decisions/d19-scope-cut-after-full-review.md)).
 - **Zabbix server 10051 is not published**: no outside agents report in (D13).
 - **Firewall, unverified:** firewalld is active and its rules are unreadable here. Docker's own NAT rules may route
   published ports around firewalld zones, and Docker 29 may behave differently again, so the port may be reachable
@@ -157,18 +147,17 @@ model are downloaded at setup by the Docker daemon and the one-shot container on
 | `ZBXAI_PREFIX` | `zbxai` |
 | `ZBXAI_FRONT_SUBNET` / `_APP_` / `_MODEL_` / `_TEST_` / `_SETUP_` | 172.30.60.0/24, .61.0/24, .62.0/24, .63.0/24, .64.0/24 |
 | `ZBXAI_GRAFANA_BIND`, `ZBXAI_GRAFANA_PORT` | 0.0.0.0, 13000 (D16) |
-| `ZBXAI_ZBXWEB_BIND`, `ZBXAI_ZBXWEB_PORT` | 0.0.0.0, 18080 (D16) |
+| `ZBXAI_ZBXWEB_PORT` | 18080 (the compose file binds it to 127.0.0.1; no `_BIND` key since D19) |
 | `ZBXAI_APP_SUBNET` | 172.30.61.0/24 |
-| `ZBXAI_EDGE_BIND`, `ZBXAI_EDGE_PORT` | 0.0.0.0, 18081 (llama proxy, [D15](../decisions/d15-llama-lan-access-through-authenticated-proxy.md)) |
 | `LLAMA_CTX_SIZE`, `LLAMA_THREADS` | 32768, 6 (threads: benchmark decides, 6 or 8; the agent's prompts are about 1500 tokens, so lower the context before the full stack runs if RAM is short) |
 | `ZBXAI_USED_RANGES` | 10.168.48.0/22, 172.17.0.0/16, 172.25.0.0/24 (add resolver and proxy ranges once known) |
-| `ZBXAI_RECEIVER_URL` | `http://zbxai_receiver:8000/v1/events` |
+| `ZBXAI_RECEIVER_URL` | `http://zbxai_agent:8000/v1/events` |
 | `ZBXAI_SSH_TARGET` | `<user>@<testbed>`: when set, `scripts/ship-test.sh` and `scripts/lock.sh` run docker over ssh; unset means local docker. Set only on the workstation |
 
 ## 10. Order and teardown
 - **Up** (each step idempotent, one command, no manual step; plan contract R7): `check_env` with live subnets (in a container), networks, `secrets-init` (one-shot),
   `postgres` (roles), `migrate` (one-shot), `zabbix_server`, `zabbix_web`, `provision` (one-shot: the Zabbix admin account, which is no longer `Admin` but the renamed `unified` of [D16](../decisions/d16-zabbix-web-and-grafana-on-lan-with-shared-login.md), template, roles, users, the two tokens),
-  `grafana`, then `llama`, `receiver`, `worker`, `mcp`, then reporters. Services wait on healthchecks. **Down:** reverse order. `teardown.sh` removes only
+  `grafana`, then `llama`, `agent`, then reporters. Services wait on healthchecks. **Down:** reverse order. `teardown.sh` removes only
   names starting `zbxai`; `--volumes` adds the named volumes and `--models` the model volume. The one-shots are transient containers named `zbxai_secrets_init`, `zbxai_migrate`, `zbxai_provision`.
 - The seeded-fault and load containers are transient and removed after each run.
 

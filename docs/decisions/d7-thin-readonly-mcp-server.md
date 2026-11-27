@@ -21,6 +21,6 @@ Zabbix version.
 **Unverified:** that a User-type role with a `*.get` allow-list blocks all writes (the subagent's suggestion,
 not documented behaviour). Tracked in the [verification backlog](../development/backlog/design-verification.md).
 
-**Interim (2026-11-26):** the official server was installed first at the owner's request, see [D17](d17-official-zabbix-mcp-server-as-interim.md); this decision is not replaced.
+**Gated (2026-11-27, [D19](d19-scope-cut-after-full-review.md)):** model tool calls are unproven (D9 lists tool-call reliability as unverified) and the model lookup path is off. The interim official server (the withdrawn D17) is removed, so no MCP server runs and no MCP client code exists. This decision stands, but the server is built (implementation plan Task 2.4) only if the benchmark shows at least 9 of 10 valid tool calls on `llama-server` with `--jinja`.
 
 **Revisit:** if the tool set grows past a handful, or the official server gains a read-only mode.

@@ -13,11 +13,11 @@ components: []
 Llama-written analysis for each problem where Grafana shows it beside the problem.
 
 **Architecture:** Zabbix detects and Grafana shows problems straight from Zabbix (Phase 1, shippable alone). A Python
-agent (receiver, queue, worker, thin read-only MCP server) calls `llama-server` and stores validated analyses in a
-database that Grafana reads with a SELECT-only role (Phase 2). Phases 3 and 4 add sweep, scale and failure proof, and
+agent (one `agent` service with the receiver, the queue and the worker; no MCP server unless D7's gate passes, [D19](/unified/user/cj/ai_agent/zabbix_agent/kb/docs/decisions/d19-scope-cut-after-full-review.md)) calls `llama-server` and stores validated analyses in a
+database that Grafana reads with a SELECT-only role (Phase 2). Phases 3 and 4 add scale and failure proof, and
 portable packaging.
 
-**Tech Stack:** Python 3.12 in `python:3.12-slim` containers; the `mcp` Python SDK, `httpx`, `psycopg` 3, `pydantic` 2,
+**Tech Stack:** Python 3.12 in `python:3.12-slim` containers; `httpx`, `psycopg` 3, `pydantic` 2,
 `starlette` with `uvicorn`, `pytest`, `ruff`; Docker Compose (v5.6.0 observed on the testbed); Zabbix 8.0 LTS official
 images; PostgreSQL; Grafana OSS with the Zabbix plugin; llama.cpp `llama-server`. Exact tags and digests are fixed by
 Task 0.2 in `/unified/user/cj/ai_agent/zabbix_agent/codebase/deploy/versions.env`.
@@ -84,7 +84,7 @@ separate from this docs-only KB. Created; `git init` and the first commit were d
 ├── .env (git-ignored, real values, repo root, never shipped or scanned)
 ├── deploy/        compose.yaml  compose.test.yaml  .env.example  versions.env
 │                  postgres/ (Dockerfile, init, migrations)  grafana/ (Dockerfile, provisioning, dashboards)  zabbix/ (media)
-├── src/zbxai/     config  models  store  zabbix_client  mcp_server  llm  pipeline  receiver  worker  sweep
+├── src/zbxai/     config  models  store  zabbix_client  llm  pipeline  receiver  worker  health
 ├── tools/         zbx_provision/  loadgen/  faults/  bench/  scale/  drills/  health/  envcheck.py  secrets_init.py  migrate.py
 ├── tests/         unit/  integration/  e2e/
 └── scripts/       ship-test.sh  deploy.sh  teardown.sh  fetch-model.sh
@@ -117,7 +117,7 @@ work are *unverified* and have a backlog entry.
   passed in) → networks → `secrets-init` (one-shot; creates random secrets in the volume `${ZBXAI_PREFIX}_secrets` only if absent) → `postgres`
   (healthy) → `migrate` (one-shot, runs as `zbxai_agent_rw`) → `zabbix-server` and `zabbix-web` (healthy) → `provision` (one-shot, compose profile
   `setup`: changes the Zabbix admin password (the account is now the renamed `unified`, D16), applies template, roles and users, writes the two API tokens into the secrets volume) →
-  `grafana` (admin password from a secret file, not a manual step) → `llama`, `receiver`, `worker`, `mcp` → reporters. Every service has a
+  `grafana` (admin password from a secret file, not a manual step) → `llama`, `agent` → reporters. Every service has a
   healthcheck and `depends_on: condition: service_healthy`; every one-shot is safe to run twice. A second `up` changes nothing.
 - **R8. Secrets in a named volume, not a bind mount.** `secrets-init` writes them into `${ZBXAI_PREFIX}_secrets`, one sub-directory per
   consuming service (compose volume `subpath`), mounted read-only, with the owner and mode the image's non-root user needs (the official images
@@ -126,8 +126,8 @@ work are *unverified* and have a backlog entry.
 - **R9. Tools run as containers too.** `/unified/user/cj/ai_agent/zabbix_agent/codebase/scripts/deploy.sh run-tool <name> [args]` starts a `--rm` container from the runtime image on the app network with a
   memory limit; this is how `zbx_provision`, `loadgen`, the fault scripts and the reporters run. Nothing runs on the host but `bash`, `ssh`, `tar`
   and the `docker` CLI.
-- **R10. Entry points are named.** Each service container has a defined command: `python -m zbxai.receiver`, `python -m zbxai.worker`,
-  `python -m zbxai.mcp_server`, `python -m tools.health.disk_reporter`.
+- **R10. Entry points are named.** Each service container has a defined command: the `agent` service runs `python -m zbxai.receiver` and
+  `python -m zbxai.worker`; the reporter runs `python -m tools.health.disk_reporter`.
 - **R11. Downloads happen at setup only,** and each has a named image and a pinned source (R3). During the cold-reproduction drill, after setup finishes, `docker events` and the service logs show no image pull, plugin download or model download (observed, no firewall change); the egress test of Task 2.5 step 5 covers the internal networks.
 - **R12. Cleanup is bounded.** `/unified/user/cj/ai_agent/zabbix_agent/codebase/scripts/teardown.sh` removes names starting with the prefix and takes `--volumes` to include the named volumes
   (never the model volume unless `--models` is also given, since it is 7 GB of setup download).
@@ -185,7 +185,7 @@ work are *unverified* and have a backlog entry.
 | [1.3](/unified/user/cj/ai_agent/zabbix_agent/kb/docs/development/implementation-plan/phase-1-platform.md) Zabbix content as code | read-only role, tokens, template | 1.2 |
 | [1.4](/unified/user/cj/ai_agent/zabbix_agent/kb/docs/development/implementation-plan/phase-1-platform.md) Grafana problems view | **Commitment tier shippable** | 1.3 |
 | [1.5](/unified/user/cj/ai_agent/zabbix_agent/kb/docs/development/implementation-plan/phase-1-platform.md) Load and fault tools, cold-reproduction drill | seeded faults, simulated load, rebuild-from-nothing proof | 1.3 |
-| [2.0 to 2.4](/unified/user/cj/ai_agent/zabbix_agent/kb/docs/development/implementation-plan/phase-2a-agent-core.md) Scaffold, models, store, Zabbix client, MCP | tested core library | 1.2 |
-| [2.5 to 2.10](/unified/user/cj/ai_agent/zabbix_agent/kb/docs/development/implementation-plan/phase-2b-agent-service.md) Runtime, LLM, pipeline, receiver, panel, e2e | analysis in Grafana | 0.3, 1.4, 2.4 |
-| [3.1 to 3.5](/unified/user/cj/ai_agent/zabbix_agent/kb/docs/development/implementation-plan/phase-3-hardening.md) Sweep, digest, scale, drills, self-monitoring | proven at 3 times load | Phase 2 |
+| [2.0 to 2.3](/unified/user/cj/ai_agent/zabbix_agent/kb/docs/development/implementation-plan/phase-2a-agent-core.md) Scaffold, models, store, Zabbix client (Task 2.4, the MCP server, is gated and not planned) | tested core library | 1.2 |
+| [2.5 to 2.10](/unified/user/cj/ai_agent/zabbix_agent/kb/docs/development/implementation-plan/phase-2b-agent-service.md) Runtime, LLM, pipeline, receiver, panel, e2e | analysis in Grafana | 0.3, 1.4, 2.3 |
+| [3.3 to 3.5](/unified/user/cj/ai_agent/zabbix_agent/kb/docs/development/implementation-plan/phase-3-hardening.md) Scale, drills, self-monitoring | proven at 3 times load | Phase 2 |
 | [4.1 to 4.2](/unified/user/cj/ai_agent/zabbix_agent/kb/docs/development/implementation-plan/phase-4-packaging.md) Portable packaging, KB sync | real-target ready | Phase 3 |

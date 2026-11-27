@@ -1,6 +1,6 @@
 ---
 title: Implementation plan - Phase 3 hardening
-description: Sweep, daily digest, scale test at 3 times the sizing reference, failure drills and self-monitoring
+description: Scale test at 3 times the sizing reference, failure drills and self-monitoring
 components: []
 ---
 
@@ -8,40 +8,7 @@ components: []
 
 Global constraints and protocol: [index](/unified/user/cj/ai_agent/zabbix_agent/kb/docs/development/implementation-plan/index.md). Needs Phase 2. Each task ends with a commit step (ask first, Q7).
 
-### Task 3.1: Sweep for items with no trigger
-
-**Files:**
-- Create: `/unified/user/cj/ai_agent/zabbix_agent/codebase/src/zbxai/sweep.py`; add `untriggered_items(limit: int) -> Page[Item]` to `/unified/user/cj/ai_agent/zabbix_agent/codebase/src/zbxai/zabbix_client.py` (a `.get` call only)
-- Test: `/unified/user/cj/ai_agent/zabbix_agent/codebase/tests/unit/test_sweep.py`
-
-**Interfaces:**
-- Produces: `Finding(kind: Literal["slope_change"], score: float, since: int)`;
-  `detect_slope_change(points: Sequence[tuple[int, float]], *, min_points: int = 12, z: float = 3.0) -> Finding | None` (pure);
-  `run_sweep(zbx: ZabbixClient, store: AnalysisStore, now: int) -> SweepReport`. A finding becomes a synthetic `ProblemEvent`
-  (`event_id` `sweep:<item_id>:<now>`, severity 2, tag `source=sweep`) through the same queue, so the pipeline is unchanged.
-
-- [ ] **Step 1: Write failing tests:** `test_flat_series_gives_none`, `test_flat_then_ramp_gives_finding`,
-  `test_noisy_flat_series_not_flagged_over_20_seeds` (false-positive guard), `test_fewer_than_min_points_gives_none`,
-  `test_unsorted_and_duplicate_timestamps_handled`, `test_nan_and_inf_rejected` (raises `ValueError`),
-  `test_run_sweep_enqueues_through_same_queue_and_respects_cap`.
-- [ ] **Step 2: Run, expecting FAIL. Step 3: Implement** with a robust slope estimate against the series' own residual spread.
-  **Step 4: Run, expecting PASS.**
-
-### Task 3.2: Daily digest
-
-**Files:**
-- Create: `build_digest` in `/unified/user/cj/ai_agent/zabbix_agent/codebase/src/zbxai/digest.py`; view `v_daily_digest` in a new migration `/unified/user/cj/ai_agent/zabbix_agent/codebase/deploy/postgres/migrations/002_digest.sql`;
-  `/unified/user/cj/ai_agent/zabbix_agent/codebase/deploy/grafana/dashboards/digest.json`
-- Test: `/unified/user/cj/ai_agent/zabbix_agent/codebase/tests/unit/test_digest.py`, `/unified/user/cj/ai_agent/zabbix_agent/codebase/tests/integration/test_store.py` (extend)
-
-**Interfaces:**
-- Produces: `AnalysisRow(event_id: str, host: str, severity: int, created_at: datetime, has_analysis: bool)`;
-  `build_digest(rows: Sequence[AnalysisRow], day: date) -> DigestSummary(top_hosts: list[tuple[str, int]],
-  counts_by_severity: dict[int, int], no_analysis_count: int)`; the view is SELECT-able by `zbxai_grafana_ro` without changing its grants.
-
-- [ ] **Step 1: Write failing tests:** `test_digest_counts_by_severity`, `test_digest_top_hosts_ordered_and_capped_at_10`,
-  `test_digest_day_boundary_is_utc`, `test_view_selectable_by_grafana_ro`.
-- [ ] **Step 2: Run, expecting FAIL. Step 3: Implement. Step 4: Run, expecting PASS.**
+Tasks 3.1 (sweep) and 3.2 (daily digest) were removed ([D19](/unified/user/cj/ai_agent/zabbix_agent/kb/docs/decisions/d19-scope-cut-after-full-review.md)): detection stays inside Zabbix ([D6](/unified/user/cj/ai_agent/zabbix_agent/kb/docs/decisions/d6-detection-split.md)). The numbers of 3.3 to 3.5 are unchanged.
 
 ### Task 3.3: Scale test
 

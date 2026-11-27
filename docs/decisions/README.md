@@ -1,12 +1,12 @@
 ---
 title: Decision log
-description: Lookup of decision records D1..D18 and the open questions that need the owner
+description: Lookup of decision records D1..D19 and the open questions that need the owner
 components: []
 ---
 
 # Decisions
 
-All of D1 to D18 are decided: the owner made D1 to D5, D8 to D18 and read-only v1 directly; D6, D7's thin server and the mechanisms inside D8 and D11 were the agent's proposals, accepted with the approved [design plan](../architecture/design-plan.md). Verification items can still overturn one.
+All of D1 to D19 are decided: the owner made D1 to D5, D8 to D19 and read-only v1 directly; D6, D7's thin server and the mechanisms inside D8 and D11 were the agent's proposals, accepted with the approved [design plan](../architecture/design-plan.md). Verification items can still overturn one. D15, D17 and D18 were withdrawn by [D19](d19-scope-cut-after-full-review.md): their records are deleted, git history keeps the text, and their numbers are not reused.
 
 | ID | Decision | File |
 |---|---|---|
@@ -16,7 +16,7 @@ All of D1 to D18 are decided: the owner made D1 to D5, D8 to D18 and read-only v
 | D4 | Project type: none matches, core rules only | [d4-project-type-core-only.md](d4-project-type-core-only.md) |
 | D5 | KB location, layout and rulebook | [d5-kb-location-and-layout.md](d5-kb-location-and-layout.md) |
 | D6 | Zabbix detects; the model only triages | [d6-detection-split.md](d6-detection-split.md) |
-| D7 | Thin custom read-only MCP server | [d7-thin-readonly-mcp-server.md](d7-thin-readonly-mcp-server.md) |
+| D7 | Thin custom read-only MCP server; gated: built only if model tool calls prove reliable, nothing runs an MCP server until then (D19) | [d7-thin-readonly-mcp-server.md](d7-thin-readonly-mcp-server.md) |
 | D8 | Grafana is the only notification surface; no chat or push channel (owner decision) | [d8-grafana-only-notification.md](d8-grafana-only-notification.md) |
 | D9 | Llama 3.1 8B (3B fallback) on llama.cpp `llama-server`, CPU only (owner-approved) | [d9-model-and-runtime.md](d9-model-and-runtime.md) |
 | D10 | Zabbix 8.0 LTS with PostgreSQL from official images (owner-approved) | [d10-zabbix-version-and-database.md](d10-zabbix-version-and-database.md) |
@@ -24,10 +24,11 @@ All of D1 to D18 are decided: the owner made D1 to D5, D8 to D18 and read-only v
 | D12 | Operational data stays in the network (owner decision) | [d12-operational-data-stays-in-network.md](d12-operational-data-stays-in-network.md) |
 | D13 | The testbed is a rehearsal; the 50+ modules are a sizing reference (owner decision) | [d13-rehearsal-testbed-and-sizing-reference.md](d13-rehearsal-testbed-and-sizing-reference.md) |
 | D14 | `CHANGELOG.md` is the generated change log, times in UTC+8, rebuilt by a hook (owner decision) | [d14-changelog-generated-in-root.md](d14-changelog-generated-in-root.md) |
-| D15 | Llama is reachable from the LAN on 0.0.0.0:18081 only through an nginx proxy that requires an API key (owner decision) | [d15-llama-lan-access-through-authenticated-proxy.md](d15-llama-lan-access-through-authenticated-proxy.md) |
-| D16 | Zabbix web (18080) and Grafana (13000) are published on 0.0.0.0 with one shared development login, also used by the llama web UI (owner decision) | [d16-zabbix-web-and-grafana-on-lan-with-shared-login.md](d16-zabbix-web-and-grafana-on-lan-with-shared-login.md) |
-| D17 | The official `zabbix-mcp-server` runs first as an interim step; D7's thin custom server stays the target (owner decision) | [d17-official-zabbix-mcp-server-as-interim.md](d17-official-zabbix-mcp-server-as-interim.md) |
-| D18 | A replay of a real module log goes to the real testbed Zabbix (HTTP) and a local file, at its recorded pace, to test the agent (owner decision) | [d18-log-replay-rig-on-the-real-zabbix.md](d18-log-replay-rig-on-the-real-zabbix.md) |
+| D15 | Withdrawn by D19: the authenticated llama proxy on 18081 is removed; llama is reachable only on the internal network | none (deleted) |
+| D16 | Grafana (13000) is published on 0.0.0.0 with one shared development login; Zabbix web is on host loopback only, after D19 amended it (owner decision) | [d16-zabbix-web-and-grafana-on-lan-with-shared-login.md](d16-zabbix-web-and-grafana-on-lan-with-shared-login.md) |
+| D17 | Withdrawn by D19: the official `zabbix-mcp-server` interim is removed; D7 stays as a gated future decision | none (deleted) |
+| D18 | Withdrawn by D19: the log replay rig is removed, and its objects on the real Zabbix were torn down on 2026-11-27 | none (deleted) |
+| D19 | Scope cut after the full review: everything rated "not needed" or "not must" is removed or dropped; one agent service, no MCP server running (owner decision) | [d19-scope-cut-after-full-review.md](d19-scope-cut-after-full-review.md) |
 
 ## Open questions (the owner's to decide; nothing is assumed)
 | # | Question | Blocks |
@@ -37,7 +38,7 @@ All of D1 to D18 are decided: the owner made D1 to D5, D8 to D18 and read-only v
 | Q3 | Answered: superseded; Grafana is the notification medium ([D8](d8-grafana-only-notification.md)) | none |
 | Q4 | Answered: Zabbix 8.0 LTS, falling back to 7.0 ([D10](d10-zabbix-version-and-database.md)) | none |
 | Q5 | Answered: the agent is read-only against Zabbix in v1 ([D7](d7-thin-readonly-mcp-server.md)) | none |
-| Q6 | Partly answered: the update-log hook is wired ([D14](d14-changelog-generated-in-root.md)); do we also wire the KB-lint hook into `.claude/settings.json`? | [Backlog](../development/backlog/environment-and-tooling.md) |
+| Q6 | Answered: the update-log hook is wired ([D14](d14-changelog-generated-in-root.md)); the KB-lint hook is dropped ([D19](d19-scope-cut-after-full-review.md)) | none |
 | Q7 | Commit and merge policy for the KB repo: ask each time (default) or a standing grant? | First commit |
 | Q9 | Answered ([D13](d13-rehearsal-testbed-and-sizing-reference.md)): the 50+ modules run on a host we cannot reach and are a sizing reference only; the rehearsal uses simulated load | none |
 | Q10 | Answered: no chat system; Grafana only ([D8](d8-grafana-only-notification.md)) | none |
