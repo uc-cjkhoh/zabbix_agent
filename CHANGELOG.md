@@ -3,6 +3,12 @@
 Generated from `git log` on `main` by `.claude/hooks/update-changelog.py` after each commit. Do not edit by hand.
 One table per date, times in UTC+8. Commits that only touch this file are not listed.
 
+## 2026-11-27
+
+| Time (UTC+8) | Change | Commits |
+|---|---|---|
+| 10:07 | docs: record D18, the log replay rig design, plan, testbed state and topology | `69dcb45` |
+
 ## 2026-11-26
 
 | Time (UTC+8) | Change | Commits |

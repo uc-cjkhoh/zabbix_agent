@@ -19,6 +19,8 @@ components: []
 - The error log's 344 lines in the common period are verbatim copies of lines already in the main log; the extract does not replay them twice.
 - The log is bursty: 483 messages per second on average, 1,363 at the busiest second, 549 in the busiest 100 ms tick.
 
-**Unverified:** anything on the real Zabbix (no write has been made there); behaviour at 480 messages per second through `zbxai_zabbix_web` (a file-only replay is verified, the HTTP path is not); whether the real Zabbix needs the same allowed-hosts value.
+**On the real Zabbix (2026-11-27, owner's go):** the five objects were created and read back as designed; allowed hosts `172.30.60.0/24` is right. The first full-speed replay stalled after 97 s (`History cache is full`: a minute-long `count()` trigger on one busy log item saturated the single history syncer that handles an item, about 24 values per second). **Owner decision (option a): the trigger moved to a second, error-only item; the all-lines item has no trigger.** Zabbix also refuses two values of one item with the same clock and ns: each pushed value is stamped at least 1 ns after the previous one. Result: the full window (134,842 messages) went to the file and to Zabbix in 279.1 s with 0 failures; Zabbix stored every message and every error; the trigger fired once and recovered after the run.
+
+**Unverified:** the outage run; behaviour on longer or busier logs than this window.
 
 **Revisit:** after the first run against the real Zabbix, or if the agent needs raw log values through MCP (`history_get`, `item_get` are denied by [D17](d17-official-zabbix-mcp-server-as-interim.md)).

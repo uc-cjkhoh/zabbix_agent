@@ -111,7 +111,7 @@ the MCP server is the model's only path to Zabbix and is called only when model 
 | grafana | zabbix_web | JSON-RPC, its own read-only token | app | Problems view, trends |
 | grafana | postgres | PostgreSQL as `zbxai_grafana_ro` (SELECT-only) | app | AI-analyses table |
 | people | grafana | HTTP 13000 | LAN, front | The only notification surface |
-| replay (runs by `docker exec`) | zabbix_web | Zabbix JSON-RPC `history.push`, push-only token, batched per 100 ms tick | front | Replayed module log messages to the real Zabbix (D18; the Zabbix side is *not yet applied*) |
+| replay (runs by `docker exec`) | zabbix_web | Zabbix JSON-RPC `history.push`, push-only token, batched per 100 ms tick | front | Replayed module log messages to the real Zabbix (D18; the objects exist on the real Zabbix since 2026-11-27; error messages also go to a second item that carries the trigger) |
 | replay | edge, zabbix_web | HTTP GET `/health`, `/` | front | Run guard probes |
 | people | replay | HTTP 18090 | LAN, front | Read-only monitor page of a replay |
 | people, tools | edge | HTTP 18081, bearer or basic auth | LAN, front | Remote chat and web UI for the model (D15; not part of the agent flow) |
